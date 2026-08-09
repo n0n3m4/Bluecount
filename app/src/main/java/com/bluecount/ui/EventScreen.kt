@@ -231,7 +231,16 @@ private fun ExpenseRow(e: Expense, s: EventState, onClick: () -> Unit) {
         color = MaterialTheme.colorScheme.outline,
       )
     }
-    Text(e.cents.money(e.currency), fontWeight = FontWeight.Bold)
+    // Who paid and who wrote the op are different facts — anyone may edit anyone's expense, and the
+    // signature says who did. lastEditor is that author.
+    Column(horizontalAlignment = Alignment.End) {
+      Text(e.cents.money(e.currency), fontWeight = FontWeight.Bold)
+      Text(
+        "by ${s.nick(e.lastEditor)}",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.outline,
+      )
+    }
   }
 }
 
