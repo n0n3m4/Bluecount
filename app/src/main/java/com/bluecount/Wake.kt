@@ -37,10 +37,10 @@ import kotlinx.coroutines.launch
 private const val TAG = "BluecountSync"
 
 /**
- * Our own beacon UUID. Arbitrary but fixed forever: it is the only thing a sleeping phone matches
- * on, so changing it makes every installed copy deaf to every new one.
+ * Our own beacon UUID: the ASCII bytes of "BluecountWakeSvc". Fixed forever — it is the only thing
+ * a sleeping phone matches on, so changing it makes every installed copy deaf to every new one.
  */
-private val WAKE_UUID: UUID = UUID.fromString("6b1de5c2-9a47-4f0e-8d3a-1c7e05b9f284")
+private val WAKE_UUID: UUID = UUID.fromString("426c7565-636f-756e-7457-616b65537663")
 
 private const val WAKE_ACTION = "com.bluecount.WAKE"
 private const val WAKE_REQUEST = 1
