@@ -10,6 +10,8 @@ data class Expense(
   val title: String,
   val cents: Long,
   val date: Long,
+  /** UTC millis, or 0 on an op written before expenses carried a time. See [Put.at]. */
+  val at: Long,
   val payer: UserId,
   val mode: SplitMode,
   val shares: Map<UserId, Long>,
@@ -74,11 +76,15 @@ fun fold(ops: List<Op>, fallbackName: String = "", fallbackCurrency: String = ""
         // Resolved here rather than in the loop above: a Put can sort ahead of the Genesis that
         // names the default, and an expense must not depend on which order it was folded in.
         Expense(
-          p.id, p.title, p.cents, p.date, p.payer, p.mode, p.shares, p.kind,
+          p.id, p.title, p.cents, p.date, p.at, p.payer, p.mode, p.shares, p.kind,
           p.currency.ifBlank { currency }, p.toCents, p.toCurrency, editor,
         )
       }
-      .sortedWith(compareByDescending<Expense> { it.date }.thenByDescending { it.id })
+      // at is UTC millis and date an epoch day, so an op with no time sorts as its own UTC midnight.
+      .sortedWith(
+        compareByDescending<Expense> { if (it.at != 0L) it.at else it.date * 86_400_000L }
+          .thenByDescending { it.id }
+      )
 
   val members = (seen + expenses.flatMap { it.shares.keys + it.payer }).filter { it.isNotEmpty() }
   val balances = mutableMapOf<String, MutableMap<UserId, Long>>()

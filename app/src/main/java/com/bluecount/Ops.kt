@@ -117,6 +117,15 @@ data class Put(
   val cents: Long = 0,
   /** Epoch day, chosen by the user — device clocks disagree, so this is never used for ordering. */
   val date: Long = 0,
+  /**
+   * UTC millis, the moment the expense happened, so a row can be lined up against a card statement.
+   * Additive: 0 means an op from a build before this field existed, which is why [date] stays an
+   * epoch day rather than becoming an instant — reinterpreting it would move every expense already
+   * on a phone to 1970. New ops write both, so an older build still reads the right day.
+   *
+   * Like [date], never used for ordering: it is the user's wall clock, not a causal one.
+   */
+  val at: Long = 0,
   val payer: UserId = "",
   val mode: SplitMode = SplitMode.EQUAL,
   val shares: Map<UserId, Long> = emptyMap(),

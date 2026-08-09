@@ -86,6 +86,19 @@ class BalanceTest {
   }
 
   @Test
+  fun `expenses list newest first by instant, and an op with no time sorts as its own midnight`() {
+    val day = 20_000L
+    val noon = day * 86_400_000L + 12 * 3_600_000L
+    val log = trip()
+    // Two on the same day an hour apart, plus one written before expenses carried a time at all.
+    log.add(alice) { id -> Put(id, title = "Lunch", cents = 100, date = day, at = noon, payer = alice.id) }
+    log.add(bob) { id -> Put(id, title = "Coffee", cents = 100, date = day, at = noon + 3_600_000L, payer = bob.id) }
+    log.add(carol) { id -> Put(id, title = "Old", cents = 100, date = day, payer = carol.id) }
+
+    assertEquals(listOf("Coffee", "Lunch", "Old"), fold(log.ops).expenses.map { it.title })
+  }
+
+  @Test
   fun `state does not depend on the order ops arrived in`() {
     val log = trip()
     log.add(alice) { id -> Put(id, title = "Hotel", cents = 30_000, payer = alice.id, shares = everyone.associateWith { 1L }) }

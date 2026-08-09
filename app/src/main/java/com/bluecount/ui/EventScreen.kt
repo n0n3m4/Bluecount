@@ -213,6 +213,7 @@ private fun ExpenseRow(e: Expense, s: EventState, onClick: () -> Unit) {
       Modifier.padding(end = 12.dp),
       tint = MaterialTheme.colorScheme.outline,
     )
+    val whenText = e.whenText()
     Column(Modifier.weight(1f)) {
       Text(e.title.ifBlank { e.kind.label() })
       Text(
@@ -224,7 +225,7 @@ private fun ExpenseRow(e: Expense, s: EventState, onClick: () -> Unit) {
             Kind.EXPENSE -> append("paid by ${s.nick(e.payer)}")
           }
           append(" · ")
-          append(LocalDate.ofEpochDay(e.date))
+          append(whenText)
         },
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.outline,
@@ -317,6 +318,7 @@ private fun Balances(s: EventState, eventId: String) {
                   title = "Payback",
                   cents = t.cents,
                   date = LocalDate.now().toEpochDay(),
+                  at = System.currentTimeMillis(),
                   payer = t.from,
                   shares = mapOf(t.to to 1L),
                   kind = Kind.REIMBURSEMENT,

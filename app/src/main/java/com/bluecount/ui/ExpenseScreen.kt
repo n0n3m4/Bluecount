@@ -1,5 +1,6 @@
 package com.bluecount.ui
 
+import android.text.format.DateUtils
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,8 +25,13 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.TimePickerDialog
+import androidx.compose.material3.TimePickerDialogDefaults
+import androidx.compose.material3.TimePickerDisplayMode
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -36,6 +42,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -46,7 +53,9 @@ import com.bluecount.Kind
 import com.bluecount.Put
 import com.bluecount.SplitMode
 import com.bluecount.UserId
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -63,11 +72,13 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
   var toAmount by remember { mutableStateOf("") }
   var toCurrency by remember { mutableStateOf("") }
   var rate by remember { mutableStateOf("") }
-  var date by remember { mutableStateOf(LocalDate.now().toEpochDay()) }
+  // One instant, not a day plus a time: the pickers each edit their own part of it in the local zone.
+  var at by remember { mutableStateOf(System.currentTimeMillis()) }
   var payer by remember { mutableStateOf("") }
   var mode by remember { mutableStateOf(SplitMode.EQUAL) }
   val picked = remember { mutableStateMapOf<UserId, String>() }
   var pickingDate by remember { mutableStateOf(false) }
+  var pickingTime by remember { mutableStateOf(false) }
   var payerMenu by remember { mutableStateOf(false) }
   var toMenu by remember { mutableStateOf(false) }
 
@@ -81,7 +92,10 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
       title = existing.title
       amount = existing.cents.money()
       currency = existing.currency
-      date = existing.date
+      // An op written before expenses carried a time has only a day; editing one stamps it midnight.
+      at =
+        if (existing.at != 0L) existing.at
+        else LocalDate.ofEpochDay(existing.date).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
       payer = existing.payer
       mode = existing.mode
       existing.shares.forEach { (id, w) -> picked[id] = if (existing.mode == SplitMode.EXACT) w.money() else w.toString() }
@@ -97,6 +111,10 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
     }
     loaded = true
   }
+
+  // Stored UTC, edited and shown local: this is the only place the two representations meet.
+  val local = Instant.ofEpochMilli(at).atZone(ZoneId.systemDefault())
+  val ctx = LocalContext.current
 
   val cents = amount.toCentsOrNull()
   val toCents = toAmount.toCentsOrNull()
@@ -147,7 +165,9 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
                     id = expenseId ?: newId,
                     title = title.trim().ifEmpty { if (kind == Kind.EXPENSE) "" else kind.label() },
                     cents = cents!!,
-                    date = date,
+                    at = at,
+                    // The day is written too, for a build that predates `at` and as the list's fallback.
+                    date = local.toLocalDate().toEpochDay(),
                     payer = payer,
                     mode = if (oneToOne) SplitMode.EQUAL else mode,
                     shares = if (oneToOne || mode == SplitMode.EQUAL) weights.mapValues { 1L } else weights,
@@ -259,8 +279,13 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
         }
       }
 
-      OutlinedButton(onClick = { pickingDate = true }, modifier = Modifier.fillMaxWidth()) {
-        Text("Date: ${LocalDate.ofEpochDay(date)}")
+      Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(onClick = { pickingDate = true }, modifier = Modifier.weight(1f)) {
+          Text(DateUtils.formatDateTime(ctx, at, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_YEAR))
+        }
+        OutlinedButton(onClick = { pickingTime = true }, modifier = Modifier.weight(1f)) {
+          Text(DateUtils.formatDateTime(ctx, at, DateUtils.FORMAT_SHOW_TIME))
+        }
       }
 
       Row(verticalAlignment = Alignment.CenterVertically) {
@@ -341,13 +366,18 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
   }
 
   if (pickingDate) {
-    val picker = rememberDatePickerState(initialSelectedDateMillis = date * 86_400_000L)
+    // The M3 picker speaks UTC midnight, so the local day goes in and only the day comes back out —
+    // the time already on `at` has to survive a change of date.
+    val picker =
+      rememberDatePickerState(initialSelectedDateMillis = local.toLocalDate().toEpochDay() * 86_400_000L)
     DatePickerDialog(
       onDismissRequest = { pickingDate = false },
       confirmButton = {
         TextButton(
           onClick = {
-            picker.selectedDateMillis?.let { date = it / 86_400_000L }
+            picker.selectedDateMillis?.let {
+              at = local.with(LocalDate.ofEpochDay(it / 86_400_000L)).toInstant().toEpochMilli()
+            }
             pickingDate = false
           }
         ) {
@@ -356,6 +386,28 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
       },
     ) {
       DatePicker(picker)
+    }
+  }
+
+  if (pickingTime) {
+    val picker = rememberTimePickerState(local.hour, local.minute)
+    TimePickerDialog(
+      onDismissRequest = { pickingTime = false },
+      title = { TimePickerDialogDefaults.Title(TimePickerDisplayMode.Picker) },
+      confirmButton = {
+        TextButton(
+          onClick = {
+            // Seconds cleared: the user picked a minute, and keeping the old ones would be a lie.
+            at = local.withHour(picker.hour).withMinute(picker.minute).withSecond(0).withNano(0)
+              .toInstant().toEpochMilli()
+            pickingTime = false
+          }
+        ) {
+          Text("OK")
+        }
+      },
+    ) {
+      TimePicker(picker)
     }
   }
 }

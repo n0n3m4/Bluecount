@@ -1,5 +1,6 @@
 package com.bluecount.ui
 
+import android.text.format.DateUtils
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,13 +20,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.bluecount.App
+import com.bluecount.Expense
 import com.bluecount.Kind
 import com.bluecount.R
 import com.bluecount.Repo
 import com.bluecount.SyncEngine
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import kotlin.math.abs
 
 /** Cents to text without ever touching a float. */
@@ -72,6 +78,24 @@ fun Kind.icon(): Int =
     Kind.REIMBURSEMENT -> R.drawable.ic_undo
     Kind.CONVERSION -> R.drawable.ic_swap_horiz
   }
+
+/**
+ * When an expense happened, in the phone's own zone. [DateUtils] for the timestamp because it is
+ * the only formatter that also honours the user's 12/24-hour setting, not just the locale.
+ *
+ * An op written before [com.bluecount.Put.at] existed carries a zone-free epoch day, so it stays a
+ * bare date and is formatted straight from the `LocalDate` — running it through a zone would shift
+ * it a whole day for anyone far enough east or west.
+ */
+@Composable
+fun Expense.whenText(): String {
+  val ctx = LocalContext.current
+  return if (at != 0L)
+    DateUtils.formatDateTime(
+      ctx, at, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_YEAR or DateUtils.FORMAT_SHOW_TIME
+    )
+  else LocalDate.ofEpochDay(date).format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
+}
 
 fun Kind.label(): String =
   when (this) {
