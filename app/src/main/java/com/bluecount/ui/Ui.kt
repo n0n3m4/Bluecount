@@ -30,8 +30,7 @@ import com.bluecount.R
 import com.bluecount.Repo
 import com.bluecount.SyncEngine
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
+import java.time.ZoneId
 import kotlin.math.abs
 
 /** Cents to text without ever touching a float. */
@@ -80,21 +79,28 @@ fun Kind.icon(): Int =
   }
 
 /**
- * When an expense happened, in the phone's own zone. [DateUtils] for the timestamp because it is
- * the only formatter that also honours the user's 12/24-hour setting, not just the locale.
+ * When an expense happened, in the phone's own zone. [DateUtils] for both because it is the only
+ * formatter that also honours the user's 12/24-hour setting, not just the locale.
  *
- * An op written before [com.bluecount.Put.at] existed carries a zone-free epoch day, so it stays a
- * bare date and is formatted straight from the `LocalDate` — running it through a zone would shift
- * it a whole day for anyone far enough east or west.
+ * No [DateUtils.FORMAT_SHOW_YEAR]: with neither year flag set, `DateUtils` prints the year only
+ * when the date is not in the current one, which is the rare case for a debt.
+ *
+ * An op written before [com.bluecount.Put.at] existed carries a zone-free epoch day, so it has no
+ * time to show and is turned into millis at *local* midnight — the epoch-day millis themselves are
+ * UTC midnight and would render a whole day off for anyone far enough west.
  */
 @Composable
 fun Expense.whenText(): String {
   val ctx = LocalContext.current
-  return if (at != 0L)
-    DateUtils.formatDateTime(
-      ctx, at, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_YEAR or DateUtils.FORMAT_SHOW_TIME
-    )
-  else LocalDate.ofEpochDay(date).format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
+  val millis =
+    if (at != 0L) at
+    else LocalDate.ofEpochDay(date).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+  return DateUtils.formatDateTime(
+    ctx,
+    millis,
+    DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_ABBREV_MONTH or
+      (if (at != 0L) DateUtils.FORMAT_SHOW_TIME else 0),
+  )
 }
 
 fun Kind.label(): String =

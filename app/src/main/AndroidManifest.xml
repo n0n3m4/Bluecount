@@ -43,9 +43,13 @@
         android:supportsRtl="true"
         android:windowSoftInputMode="adjustResize"
         android:theme="@style/Theme.Bluecount">
+        <!-- The label has to be on the activity too, not just the application: recents takes its
+             title from the activity's own label and prints "com.bluecount.MainActivity" when it
+             has none. -->
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

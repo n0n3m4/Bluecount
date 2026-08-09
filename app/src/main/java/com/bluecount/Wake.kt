@@ -199,7 +199,7 @@ class WakeReceiver : BroadcastReceiver() {
       notify(
         context,
         NotificationCompat.Builder(context, CHANNEL)
-          .setSmallIcon(android.R.drawable.stat_notify_sync)
+          .setSmallIcon(R.drawable.ic_sync)
           .setContentTitle("Bluecount updates nearby")
           .setContentText("Tap to sync with the phones around you.")
           .setContentIntent(
@@ -243,7 +243,7 @@ class SyncService : Service() {
     channel(this)
     val note =
       NotificationCompat.Builder(this, CHANNEL)
-        .setSmallIcon(android.R.drawable.stat_notify_sync)
+        .setSmallIcon(R.drawable.ic_sync)
         .setContentTitle("Syncing with nearby phones")
         .setOngoing(true)
         .build()

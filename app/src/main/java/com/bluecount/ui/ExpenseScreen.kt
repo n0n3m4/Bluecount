@@ -281,7 +281,9 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
 
       Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedButton(onClick = { pickingDate = true }, modifier = Modifier.weight(1f)) {
-          Text(DateUtils.formatDateTime(ctx, at, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_YEAR))
+          Text(
+            DateUtils.formatDateTime(ctx, at, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_ABBREV_MONTH)
+          )
         }
         OutlinedButton(onClick = { pickingTime = true }, modifier = Modifier.weight(1f)) {
           Text(DateUtils.formatDateTime(ctx, at, DateUtils.FORMAT_SHOW_TIME))
