@@ -32,8 +32,14 @@ fun String.unb64(): ByteArray = B64D.decode(this)
 /** A user ID is the base64url of the X.509 SubjectPublicKeyInfo of their P-256 key. */
 typealias UserId = String
 
-/** Short, human-comparable form of a user ID, for debug rows and disambiguating identical nicks. */
-fun UserId.shortId(): String = take(8)
+/**
+ * Short, human-comparable form of a user ID, for debug rows and disambiguating identical nicks.
+ * Taken from the *end*: an X.509 SubjectPublicKeyInfo starts with a 27-byte DER header that is
+ * identical for every P-256 key ("MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE"), so a prefix is a
+ * constant, not an id. NearbyTransport also uses this as the advertised endpoint name and dials on
+ * `myName < theirName`, so a constant here means no phone ever dials and sync silently never runs.
+ */
+fun UserId.shortId(): String = takeLast(8)
 
 /** Holds the private half. The app builds one from the Android Keystore; tests from a plain keypair. */
 class Signer(private val key: PrivateKey, val id: UserId) {

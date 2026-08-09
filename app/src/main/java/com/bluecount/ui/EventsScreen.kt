@@ -166,7 +166,7 @@ fun SettingsScreen(onBack: () -> Unit) {
       Card {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
           Text("Your ID", style = MaterialTheme.typography.titleSmall)
-          Text(Identity.me.shortId() + "…", style = MaterialTheme.typography.bodyMedium)
+          Text("…" + Identity.me.shortId(), style = MaterialTheme.typography.bodyMedium)
           Text(
             "This is the public half of a key generated on this phone. It signs everything you add, " +
               "which is how the app tells whose expenses are whose. It cannot be backed up or moved: " +
