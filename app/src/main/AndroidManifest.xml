@@ -14,11 +14,21 @@
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
     <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES"
         android:usesPermissionFlags="neverForLocation" tools:targetApi="tiramisu" />
-    <!-- Below API 31 the discovery transports are location-gated. -->
+    <!-- Below API 33 the Wi-Fi transports are location-gated (NEARBY_WIFI_DEVICES replaces this).
+         32 rather than 30: nearbyPermissions() asks for FINE on 31-32, and an undeclared
+         permission auto-denies, which silently kept sync from ever starting on Android 12/12L.
+         COARSE must be declared and requested alongside FINE or Android 12+ ignores the request. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"
-        android:maxSdkVersion="28" />
+        android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"
-        android:maxSdkVersion="30" />
+        android:maxSdkVersion="32" />
+
+    <!-- Waking a phone whose app is closed: see Wake.kt. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <!-- QR scanning to join an event. -->
     <uses-permission android:name="android.permission.CAMERA" />
@@ -41,6 +51,22 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".SyncService"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice" />
+
+        <!-- Exported: system broadcasts come from the system uid and never reach a private
+             receiver. WakeReceiver guards on the action. -->
+        <receiver
+            android:name=".WakeReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.bluetooth.adapter.action.STATE_CHANGED" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

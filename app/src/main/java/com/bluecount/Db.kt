@@ -103,6 +103,21 @@ class Repo(context: Context, val signer: Signer) : OpStore {
     get() = prefs.getString("nick", "") ?: ""
     set(v) = prefs.edit().putString("nick", v).apply()
 
+  /** Whether this phone beacons and listens for beacons (Wake.kt). The only off switch. */
+  var wakeEnabled: Boolean
+    get() = prefs.getBoolean("wake", true)
+    set(v) = prefs.edit().putBoolean("wake", v).apply()
+
+  /** When a beacon last woke us, to ignore the flood from a chip without first-match filtering. */
+  var lastWake: Long
+    get() = prefs.getLong("lastWake", 0)
+    set(v) = prefs.edit().putLong("lastWake", v).apply()
+
+  /** The battery-optimization exemption is asked for once and never again. */
+  var batteryAsked: Boolean
+    get() = prefs.getBoolean("batteryAsked", false)
+    set(v) = prefs.edit().putBoolean("batteryAsked", v).apply()
+
   /** Set by the sync engine so the UI can show what is going on. */
   val events: Flow<List<EventRow>> = dao.events()
 

@@ -30,10 +30,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bluecount.EventState
+import com.bluecount.Wake
 import com.bluecount.Expense
 import com.bluecount.Kind
 import com.bluecount.Put
@@ -56,6 +58,8 @@ fun EventScreen(
   var tab by remember { mutableStateOf(0) }
   var menu by remember { mutableStateOf(false) }
   var leaving by remember { mutableStateOf(false) }
+  var wake by remember { mutableStateOf(repo.wakeEnabled) }
+  val context = LocalContext.current
   val scope = rememberCoroutineScope()
   val s = state
 
@@ -73,6 +77,15 @@ fun EventScreen(
               onClick = {
                 menu = false
                 sync.kick()
+              },
+            )
+            DropdownMenuItem(
+              text = { Text(if (wake) "Wake nearby phones: on" else "Wake nearby phones: off") },
+              onClick = {
+                menu = false
+                wake = !wake
+                repo.wakeEnabled = wake
+                if (wake) Wake.arm(context) else Wake.disarm(context)
               },
             )
             DropdownMenuItem(

@@ -45,10 +45,12 @@ fun nearbyPermissions(): Array<String> =
         Manifest.permission.NEARBY_WIFI_DEVICES,
       )
     Build.VERSION.SDK_INT >= 31 ->
+      // COARSE is requested with FINE because Android 12+ ignores a FINE-only request outright.
       arrayOf(
         Manifest.permission.BLUETOOTH_ADVERTISE,
         Manifest.permission.BLUETOOTH_CONNECT,
         Manifest.permission.BLUETOOTH_SCAN,
+        Manifest.permission.ACCESS_COARSE_LOCATION,
         Manifest.permission.ACCESS_FINE_LOCATION,
       )
     // Below 31 the radios used for discovery are location-gated, and the system location
@@ -170,24 +172,29 @@ class NearbyTransport(context: Context, private val myName: String) : Transport 
 }
 
 /**
- * Owns the transport for as long as the app is in the foreground (spec §7). Background sync would
- * need a foreground service and would still be killed on most phones, so it is deliberately not
- * attempted.
+ * Owns the transport while anyone holds it: the foreground activity (spec §7), or `SyncService`
+ * during the window a BLE beacon woke us for (see `Wake.kt`).
  *
- * Connections are held open for the whole foreground period rather than torn down after each
- * exchange, so a local write reaches everyone in the room immediately. The minute timer is only a
- * recovery path for peers we are not connected to.
+ * [start] and [stop] are hold-counted, because both of those can overlap — opening the app during a
+ * wake window must not have the activity's `onStop` tear the service's radio down, or vice versa.
+ *
+ * Connections are held open for the whole period rather than torn down after each exchange, so a
+ * local write reaches everyone in the room immediately. The minute timer is only a recovery path
+ * for peers we are not connected to.
  */
 class SyncEngine(private val context: Context, private val repo: Repo) {
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
   private val sessions = CopyOnWriteArrayList<Session>()
   private var transport: NearbyTransport? = null
   private var ticker: Job? = null
+  private var holds = 0
 
   /** Short text for the UI: what the radio is doing right now. */
   val status = MutableStateFlow("Not syncing")
 
+  @Synchronized
   fun start() {
+    holds++
     if (transport != null) return
     if (!context.hasNearbyPermissions()) {
       status.value = "Nearby permissions not granted"
@@ -227,7 +234,12 @@ class SyncEngine(private val context: Context, private val repo: Repo) {
       }
   }
 
+  @Synchronized
   fun stop() {
+    // coerceAtLeast rather than trusting the count: an unpaired stop must never make the next
+    // holder's start() a no-op, which would leave the radio silently off.
+    holds = (holds - 1).coerceAtLeast(0)
+    if (holds > 0) return
     ticker?.cancel()
     ticker = null
     transport?.stop()
