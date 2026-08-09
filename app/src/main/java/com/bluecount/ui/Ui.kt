@@ -62,16 +62,15 @@ fun Long.micros(): String {
 fun rateMicros(from: Long, to: Long): Long = if (from <= 0) 0L else to * MICRO / from
 
 /**
- * Marks the two kinds that are *not* an ordinary expense. Blank for [Kind.EXPENSE]: a bullet in
- * front of every row and of the "Expense" tab marked nothing, since that is the default case.
- * These stay characters rather than icons because they are read as part of a line of text, not
- * tapped — see the icon rule in CLAUDE.md.
+ * The leading mark on an expense row. All three are arrows so the list reads as one family: value
+ * going out, coming back, or crossing over. Drawables rather than "↩"/"⇄", which rendered at label
+ * size and thin next to anything Material drew — see the icon rule in CLAUDE.md.
  */
-fun Kind.glyph(): String =
+fun Kind.icon(): Int =
   when (this) {
-    Kind.EXPENSE -> ""
-    Kind.REIMBURSEMENT -> "↩"
-    Kind.CONVERSION -> "⇄"
+    Kind.EXPENSE -> R.drawable.ic_arrow_forward
+    Kind.REIMBURSEMENT -> R.drawable.ic_undo
+    Kind.CONVERSION -> R.drawable.ic_swap_horiz
   }
 
 fun Kind.label(): String =

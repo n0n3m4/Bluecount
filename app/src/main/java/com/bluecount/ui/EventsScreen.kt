@@ -11,13 +11,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -55,12 +56,18 @@ fun EventsScreen(onOpen: (String) -> Unit, onScan: () -> Unit, onSettings: () ->
       )
     },
     floatingActionButton = {
-      // The text-only overload: the icon slot always reserves its 12dp spacer, so passing an empty
-      // one left both labels shoved off-centre. These keep words rather than icons because there is
-      // no glyph for "create an event" that anyone reads on the first try.
-      Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        ExtendedFloatingActionButton(onClick = onScan) { Text("Scan QR") }
-        ExtendedFloatingActionButton(onClick = { creating = true }) { Text("New event") }
+      // Scanning is the secondary action, so it gets the small tonal FAB and "new event" keeps the
+      // full-size primary one below it, under the thumb.
+      Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SmallFloatingActionButton(
+          onClick = onScan,
+          containerColor = MaterialTheme.colorScheme.secondaryContainer,
+        ) {
+          Icon(painterResource(R.drawable.ic_qr_code_scanner), "Scan a friend's QR code")
+        }
+        FloatingActionButton(onClick = { creating = true }) {
+          Icon(painterResource(R.drawable.ic_add), "New event")
+        }
       }
     },
   ) { pad ->

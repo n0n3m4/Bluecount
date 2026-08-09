@@ -196,7 +196,9 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
             },
             shape = SegmentedButtonDefaults.itemShape(i, Kind.entries.size),
           ) {
-            Text("${k.glyph()} ${k.label()}".trim())
+            // No icon of our own: the selected item already gets Material's 24dp check in the icon
+            // slot, and anything we put beside the label only competed with it.
+            Text(k.label())
           }
         }
       }

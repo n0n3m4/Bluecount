@@ -177,7 +177,12 @@ private fun ExpenseList(s: EventState, onExpense: (String?) -> Unit) {
 @Composable
 private fun ExpenseRow(e: Expense, s: EventState, onClick: () -> Unit) {
   Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-    e.kind.glyph().takeIf { it.isNotEmpty() }?.let { Text(it, Modifier.padding(end = 12.dp)) }
+    Icon(
+      painterResource(e.kind.icon()),
+      e.kind.label(),
+      Modifier.padding(end = 12.dp),
+      tint = MaterialTheme.colorScheme.outline,
+    )
     Column(Modifier.weight(1f)) {
       Text(e.title.ifBlank { e.kind.label() })
       Text(
