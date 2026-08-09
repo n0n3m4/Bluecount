@@ -179,6 +179,38 @@ class SyncTest {
     assertTrue(store.ops.isEmpty())
   }
 
+  /**
+   * What the UI hangs "Syncing with X" off. Connecting only proves the two phones are in the same
+   * room; a peer that has joined nothing, or only somebody else's trip, exchanges nothing at all and
+   * must not be announced as a sync partner.
+   */
+  @Test
+  fun `hello reports the events the peer actually holds`() = runTest {
+    val a = MemStore(alice.id, setOf(event)).apply { seed(log().ops) }
+    val theirs = mutableListOf<Set<String>>()
+
+    val wire = Loopback()
+    Session(wire.a, a, this, onHello = { theirs += it }).start()
+    Session(wire.b, MemStore(bob.id, setOf("someone-elses-trip")), this).start()
+    drain(wire)
+
+    assertEquals(listOf(setOf("someone-elses-trip")), theirs)
+    assertTrue(theirs.single().none { it in a.clocks().keys })
+  }
+
+  @Test
+  fun `hello from a peer on the same event intersects ours`() = runTest {
+    val a = MemStore(alice.id, setOf(event)).apply { seed(log().ops) }
+    val theirs = mutableListOf<Set<String>>()
+
+    val wire = Loopback()
+    Session(wire.a, a, this, onHello = { theirs += it }).start()
+    Session(wire.b, MemStore(bob.id, setOf(event)), this).start()
+    drain(wire)
+
+    assertTrue(theirs.single().any { it in a.clocks().keys })
+  }
+
   @Test
   fun `batches stay under the Nearby payload limit`() {
     val log = TestLog(event)

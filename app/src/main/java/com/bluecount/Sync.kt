@@ -119,6 +119,11 @@ class Session(
   private val peer: Peer,
   private val store: OpStore,
   private val scope: CoroutineScope,
+  /**
+   * The events the peer advertised. A connection proves only that two phones are in the same room —
+   * their [Hello] is the first moment it is knowable whether they have anything in common at all.
+   */
+  private val onHello: suspend (Set<String>) -> Unit = {},
   private val onMerged: (Int) -> Unit = {},
   private val onClosed: () -> Unit = {},
 ) {
@@ -159,6 +164,7 @@ class Session(
       is Hello -> {
         theirClocks = msg.have
         pushLocked()
+        onHello(msg.have.keys)
       }
       is OpBatch -> {
         // They demonstrably hold what they just sent, so it never needs bouncing back. Receiving

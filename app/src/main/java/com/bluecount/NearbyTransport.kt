@@ -185,6 +185,9 @@ class NearbyTransport(context: Context, private val myName: String) : Transport 
 class SyncEngine(private val context: Context, private val repo: Repo) {
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
   private val sessions = CopyOnWriteArrayList<Session>()
+  // Peers we have an event in common with, by name. Separate from `sessions` because that counts
+  // connections, and a connection is not what the status is about — see the onHello gate below.
+  private val sharing = CopyOnWriteArrayList<String>()
   private var transport: NearbyTransport? = null
   private var ticker: Job? = null
   private var holds = 0
@@ -192,6 +195,14 @@ class SyncEngine(private val context: Context, private val repo: Repo) {
   /** Short text for the UI: what the radio is doing right now. */
   val status = MutableStateFlow("Not syncing")
 
+  /**
+   * ponytail: started unconditionally, so a phone that has joined no events still advertises,
+   * discovers and connects — `acceptable()` means it can neither store nor relay a single op, so
+   * that is battery spent on connections that can never carry anything. Skip `t.start` when
+   * `repo.clocks()` is empty if it ever shows up in a battery trace; `kick()` then has to be able to
+   * cold-start the transport, because `joinEvent` → `onAppend` → `kick()` is what would first need
+   * the radio up.
+   */
   @Synchronized
   fun start() {
     holds++
@@ -204,13 +215,21 @@ class SyncEngine(private val context: Context, private val repo: Repo) {
     transport = t
     status.value = "Looking for people nearby…"
     t.start { peer ->
-      status.value = "Syncing with ${peer.name}"
       lateinit var session: Session
       session =
         Session(
           peer,
           repo,
           scope,
+          // Being connected is not being in sync: a phone that has joined nothing, or only other
+          // trips, exchanges nothing at all. `clocks()` is keyed by joined event, so its key set is
+          // exactly what we can share.
+          onHello = { theirs ->
+            if (theirs.any { it in repo.clocks().keys }) {
+              sharing += peer.name
+              status.value = "Syncing with ${peer.name}"
+            }
+          },
           onMerged = { merged ->
             if (merged > 0) status.value = "Received $merged new entries"
             // Relaying comes free: pushing back to whoever sent these is a no-op, because a session
@@ -219,7 +238,8 @@ class SyncEngine(private val context: Context, private val repo: Repo) {
           },
           onClosed = {
             sessions.remove(session)
-            if (sessions.isEmpty()) status.value = "Looking for people nearby…"
+            sharing.remove(peer.name)
+            if (sharing.isEmpty()) status.value = "Looking for people nearby…"
           },
         )
       sessions += session
@@ -245,6 +265,7 @@ class SyncEngine(private val context: Context, private val repo: Repo) {
     transport?.stop()
     transport = null
     sessions.clear()
+    sharing.clear()
     scope.coroutineContext.cancelChildren()
     status.value = "Not syncing"
   }
