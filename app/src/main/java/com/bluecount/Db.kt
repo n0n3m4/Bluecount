@@ -62,6 +62,9 @@ interface OpDao {
 
   @Query("SELECT * FROM ops WHERE event = :id") fun opsFlow(id: String): Flow<List<OpRow>>
 
+  @Query("SELECT * FROM ops WHERE event = :id ORDER BY lamport, author, seq")
+  suspend fun opsOnce(id: String): List<OpRow>
+
   /**
    * ponytail: the whole log, loaded to answer one sync. A trip's log is hundreds of rows; add a
    * per-author range query if an event ever grows past ~10k ops.
@@ -150,6 +153,20 @@ class Repo(context: Context, val signer: Signer) : OpStore {
     append(id, Genesis(name, currency))
     append(id, Profile(nick))
     return id
+  }
+
+  /**
+   * Emergency backup: the log exactly as stored, one row per op. Edits and deletions are ops too,
+   * so everything the UI hides is in here. The payload column is the signed JSON verbatim —
+   * rebuilding it from decoded fields would no longer match [Op.sig].
+   */
+  suspend fun exportCsv(eventId: String): String = buildString {
+    append("event,author,seq,lamport,payload,sig\n")
+    for (r in dao.opsOnce(eventId)) {
+      listOf(r.event, r.author, r.seq, r.lamport, r.payload.decodeToString(), r.sig.b64())
+        .joinTo(this, ",") { "\"" + it.toString().replace("\"", "\"\"") + "\"" }
+      append("\n")
+    }
   }
 
   /** Local only — the others keep their copy, and rejoining by QR pulls it all back. */

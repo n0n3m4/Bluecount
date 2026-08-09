@@ -57,6 +57,17 @@
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />
 
+        <!-- Handing the CSV export to another app. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
         <!-- Exported: system broadcasts come from the system uid and never reach a private
              receiver. WakeReceiver guards on the action. -->
         <receiver
