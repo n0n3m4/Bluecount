@@ -12,8 +12,10 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -31,10 +33,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bluecount.EventState
+import com.bluecount.R
 import com.bluecount.Wake
 import com.bluecount.Expense
 import com.bluecount.Kind
@@ -70,7 +74,9 @@ fun EventScreen(
         navigationIcon = { BackButton(onBack) },
         actions = {
           TextButton(onClick = onShare) { Text("Invite") }
-          TextButton(onClick = { menu = true }) { Text("⋮") }
+          // A TextButton here was a 64dp-wide stadium pill around a tiny glyph, next to a round
+          // 48dp back button; an IconButton is the square, centred thing an app bar expects.
+          IconButton(onClick = { menu = true }) { Icon(painterResource(R.drawable.ic_more_vert), "More") }
           DropdownMenu(menu, onDismissRequest = { menu = false }) {
             DropdownMenuItem(
               text = { Text("Sync now") },
@@ -100,7 +106,9 @@ fun EventScreen(
       )
     },
     floatingActionButton = {
-      if (s != null) ExtendedFloatingActionButton(text = { Text("Add expense") }, icon = {}, onClick = { onExpense(null) })
+      if (s != null) {
+        FloatingActionButton(onClick = { onExpense(null) }) { Icon(painterResource(R.drawable.ic_add), "Add expense") }
+      }
     },
   ) { pad ->
     Column(Modifier.padding(pad)) {

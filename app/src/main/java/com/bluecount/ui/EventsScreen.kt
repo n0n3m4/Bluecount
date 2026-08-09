@@ -40,6 +40,7 @@ import kotlinx.coroutines.launch
 fun EventsScreen(onOpen: (String) -> Unit, onScan: () -> Unit, onSettings: () -> Unit) {
   val events by repo.events.collectAsStateWithLifecycle(emptyList())
   var creating by remember { mutableStateOf(false) }
+  var nickname by remember { mutableStateOf(repo.nickname) }
   val scope = rememberCoroutineScope()
 
   Scaffold(
@@ -66,6 +67,16 @@ fun EventsScreen(onOpen: (String) -> Unit, onScan: () -> Unit, onSettings: () ->
         }
       }
     }
+  }
+
+  // This is the start destination, so a blank stored nickname here *is* first launch.
+  if (nickname.isBlank()) {
+    WelcomeDialog(
+      onDone = {
+        repo.nickname = it
+        nickname = it
+      }
+    )
   }
 
   if (creating) {
@@ -118,6 +129,37 @@ private fun EventCard(row: EventRow, onClick: () -> Unit) {
       }
     }
   }
+}
+
+/**
+ * Asked once, on first launch. The stored nickname is only ever a prefill — the authority on who
+ * you are in an event is the signed [com.bluecount.Profile] op — but every event you create or join
+ * needs a name to put in one, and an empty box in that dialog is a worse place to ask for it.
+ */
+@Composable
+private fun WelcomeDialog(onDone: (String) -> Unit) {
+  var nick by remember { mutableStateOf("") }
+
+  AlertDialog(
+    // No dismiss and no cancel: there is nothing behind this on a fresh install, and every path
+    // out of the events list needs the name anyway.
+    onDismissRequest = {},
+    title = { Text("Welcome to Bluecount") },
+    text = {
+      Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("What should we call you? This is the name the others see next to whatever you add.")
+        OutlinedTextField(nick, { nick = it }, label = { Text("Your name") }, singleLine = true)
+        Text(
+          "Kept on this phone. You can change it any time under “Me”.",
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.outline,
+        )
+      }
+    },
+    confirmButton = {
+      TextButton(enabled = nick.isNotBlank(), onClick = { onDone(nick.trim()) }) { Text("Continue") }
+    },
+  )
 }
 
 @Composable

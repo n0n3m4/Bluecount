@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -18,9 +19,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.bluecount.App
 import com.bluecount.Kind
+import com.bluecount.R
 import com.bluecount.Repo
 import com.bluecount.SyncEngine
 import kotlin.math.abs
@@ -109,10 +112,17 @@ val repo: Repo
 val sync: SyncEngine
   get() = App.instance.sync
 
-// The material-icons artifacts are one more dependency for a handful of glyphs; text does fine.
+/**
+ * A real 24dp vector, not a "←" text glyph. A glyph sits on the *text* baseline and inherits the
+ * font's own weight, size and side bearings, so it lands off the icon grid the app bar aligns to
+ * and never matches the weight of a system icon — which is what made these look homemade.
+ *
+ * Drawables rather than material-icons: that artifact stopped shipping at 1.7.8 and is not in the
+ * Compose BOM's live set, so a handful of `res/drawable` vectors is the route that stays alive.
+ */
 @Composable
 fun BackButton(onBack: () -> Unit) {
-  IconButton(onClick = onBack) { Text("←", style = MaterialTheme.typography.titleLarge) }
+  IconButton(onClick = onBack) { Icon(painterResource(R.drawable.ic_arrow_back), "Back") }
 }
 
 @Composable
