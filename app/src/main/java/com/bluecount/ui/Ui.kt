@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.bluecount.App
 import com.bluecount.Repo
+import com.bluecount.SyncEngine
 import kotlin.math.abs
 
 /** Cents to text without ever touching a float. */
@@ -29,6 +30,9 @@ fun String.toCentsOrNull(): Long? {
 
 val repo: Repo
   get() = App.instance.repo
+
+val sync: SyncEngine
+  get() = App.instance.sync
 
 // The material-icons artifacts are one more dependency for a handful of glyphs; text does fine.
 @Composable

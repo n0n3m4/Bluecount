@@ -52,6 +52,7 @@ fun EventScreen(
   onLeave: () -> Unit,
 ) {
   val state by repo.state(eventId).collectAsStateWithLifecycle(null)
+  val syncStatus by sync.status.collectAsStateWithLifecycle()
   var tab by remember { mutableStateOf(0) }
   var menu by remember { mutableStateOf(false) }
   var leaving by remember { mutableStateOf(false) }
@@ -67,6 +68,13 @@ fun EventScreen(
           TextButton(onClick = onShare) { Text("Invite") }
           TextButton(onClick = { menu = true }) { Text("⋮") }
           DropdownMenu(menu, onDismissRequest = { menu = false }) {
+            DropdownMenuItem(
+              text = { Text("Sync now") },
+              onClick = {
+                menu = false
+                sync.kick()
+              },
+            )
             DropdownMenuItem(
               text = { Text("Leave event") },
               onClick = {
@@ -87,6 +95,14 @@ fun EventScreen(
         Tab(tab == 0, onClick = { tab = 0 }, text = { Text("Expenses") })
         Tab(tab == 1, onClick = { tab = 1 }, text = { Text("Balances") })
       }
+      // Without this, "nobody else is nearby" and "Nearby permission denied" look identical: an
+      // event with one member and no explanation.
+      Text(
+        syncStatus,
+        Modifier.fillMaxWidth().padding(16.dp, 8.dp),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.outline,
+      )
       when {
         s == null -> LinearProgressIndicator(Modifier.fillMaxWidth())
         tab == 0 -> ExpenseList(s, onExpense)

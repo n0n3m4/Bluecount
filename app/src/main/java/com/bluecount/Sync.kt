@@ -105,55 +105,69 @@ fun batches(ops: List<Op>): List<List<Op>> {
   return out
 }
 
+private fun Op.key() = OpKey(event, author, seq)
+
 /**
  * Runs the exchange on one connection: both sides open with [Hello] carrying a per-event vector
  * clock, then each pushes what the other is missing. No request round-trip, no roles.
+ *
+ * The connection is then *kept open* and [push] sends anything written since. Hanging up after the
+ * first exchange, as this used to, left a local write with nowhere to go — it had to wait for a
+ * whole new connection, which in practice meant the 60s retry timer.
  */
 class Session(
   private val peer: Peer,
   private val store: OpStore,
   private val scope: CoroutineScope,
   private val onMerged: (Int) -> Unit = {},
+  private val onClosed: () -> Unit = {},
 ) {
   private val lock = Mutex()
-  private var sentAll = false
-  private var receivedAll = false
+  private var theirClocks: Map<String, Clock>? = null
+
+  /**
+   * Ops they hold: sent to them, or received from them. A key set rather than an advanced clock —
+   * they may hold a *non-contiguous* run, and moving their clock past a gap would stop us ever
+   * refilling it.
+   */
+  private val theyHave = mutableSetOf<OpKey>()
   private var closed = false
 
   fun start() {
     peer.onMessage = { bytes -> scope.launch { lock.withLock { handle(bytes) } } }
-    peer.onClosed = { closed = true }
+    peer.onClosed = {
+      closed = true
+      onClosed()
+    }
     scope.launch { lock.withLock { peer.send(Hello(store.me, store.clocks()).encode()) } }
+  }
+
+  /** Send whatever they are still missing. Idempotent — nothing is ever sent twice. */
+  suspend fun push() = lock.withLock { pushLocked() }
+
+  private suspend fun pushLocked() {
+    val have = theirClocks ?: return // No Hello yet; their Hello will pull the whole diff anyway.
+    if (closed) return
+    val missing = store.opsFor(have).filterNot { it.key() in theyHave }
+    val chunks = batches(missing)
+    chunks.forEachIndexed { i, chunk -> peer.send(OpBatch(chunk, more = i < chunks.lastIndex).encode()) }
+    missing.forEach { theyHave += it.key() }
   }
 
   private suspend fun handle(bytes: ByteArray) {
     when (val msg = decodeMsg(bytes)) {
       is Hello -> {
-        val chunks = batches(store.opsFor(msg.have))
-        if (chunks.isEmpty()) {
-          peer.send(OpBatch(emptyList(), more = false).encode())
-        } else {
-          chunks.forEachIndexed { i, chunk -> peer.send(OpBatch(chunk, more = i < chunks.lastIndex).encode()) }
-        }
-        sentAll = true
-        finishIfDone()
+        theirClocks = msg.have
+        pushLocked()
       }
       is OpBatch -> {
+        // They demonstrably hold what they just sent, so it never needs bouncing back. Receiving
+        // also never replies, which is why pushing cannot start a ping-pong.
+        msg.ops.forEach { theyHave += it.key() }
         if (msg.ops.isNotEmpty()) onMerged(store.merge(msg.ops))
-        if (!msg.more) {
-          receivedAll = true
-          finishIfDone()
-        }
       }
       // Garbage from an unauthenticated peer: hang up rather than guess.
       null -> peer.close()
-    }
-  }
-
-  private fun finishIfDone() {
-    if (sentAll && receivedAll && !closed) {
-      closed = true
-      peer.close()
     }
   }
 }

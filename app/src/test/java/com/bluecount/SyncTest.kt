@@ -23,11 +23,21 @@ class SyncTest {
       add(bob, Profile("Bob"))
     }
 
-  /** Runs one full exchange between two stores over a fake radio. */
-  private suspend fun TestScope.sync(left: MemStore, right: MemStore, reorder: Boolean = false) {
+  /** A fake radio plus the two sessions on it, left open so a test can keep pushing down them. */
+  private class Wired(val wire: Loopback, val left: Session, val right: Session)
+
+  /** Connects two stores over a fake radio and runs the exchange until both go quiet. */
+  private fun TestScope.sync(left: MemStore, right: MemStore, reorder: Boolean = false): Wired {
     val wire = Loopback()
-    Session(wire.a, left, this).start()
-    Session(wire.b, right, this).start()
+    val a = Session(wire.a, left, this)
+    val b = Session(wire.b, right, this)
+    a.start()
+    b.start()
+    drain(wire, reorder)
+    return Wired(wire, a, b)
+  }
+
+  private fun TestScope.drain(wire: Loopback, reorder: Boolean = false) {
     repeat(50) {
       advanceUntilIdle()
       if (!wire.deliverOnce(reorder)) return
@@ -62,6 +72,36 @@ class SyncTest {
 
     assertEquals(fold(a.ops), fold(b.ops))
     assertEquals(shared.size + 2, a.ops.size)
+  }
+
+  @Test
+  fun `a write after the exchange is pushed down the open connection`() = runTest {
+    // The reported bug: the connection used to hang up once both sides were level, so a new expense
+    // had nowhere to go and waited for the 60s reconnect timer.
+    val log = log()
+    val a = MemStore(alice.id, setOf(event)).apply { seed(log.ops) }
+    val b = MemStore(bob.id, setOf(event)).apply { seed(log.ops) }
+    val w = sync(a, b)
+
+    a.seed(listOf(log.add(alice) { id -> Put(id, title = "Taxi", cents = 4_500, payer = alice.id, shares = mapOf(alice.id to 1L, bob.id to 1L)) }))
+    w.left.push()
+    drain(w.wire)
+
+    assertEquals("Taxi", fold(b.ops).expenses.single().title)
+    assertEquals(fold(a.ops), fold(b.ops))
+  }
+
+  @Test
+  fun `pushing with nothing new sends nothing`() = runTest {
+    val log = log()
+    val a = MemStore(alice.id, setOf(event)).apply { seed(log.ops) }
+    val b = MemStore(bob.id, setOf(event))
+    val w = sync(a, b)
+
+    w.left.push()
+    advanceUntilIdle()
+
+    assertTrue("a re-sent ops the peer already has", !w.wire.deliverOnce())
   }
 
   @Test
