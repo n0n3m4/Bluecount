@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Traced from the 1254x1254 source SVG. The group centres that artwork's bounding box
-     (194,278)-(1060,992) inside the 72dp safe zone of the 108dp adaptive icon. -->
+     (194,278)-(1060,992) on the 108dp adaptive canvas. The scale fits the box's *diagonal*
+     (1122) into the 66dp safe circle, not its width into the 72dp square: the mask is round on
+     most launchers, and a 72-wide box has corners well outside that circle, so they got cropped. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
@@ -9,8 +11,8 @@
     <group
         android:pivotX="627"
         android:pivotY="635"
-        android:scaleX="0.0831"
-        android:scaleY="0.0831"
+        android:scaleX="0.0588"
+        android:scaleY="0.0588"
         android:translateX="-573"
         android:translateY="-581">
         <path
