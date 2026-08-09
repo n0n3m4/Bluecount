@@ -61,10 +61,15 @@ fun Long.micros(): String {
 /** The rate a conversion op implies. Display only — the ledger only ever sees the two amounts. */
 fun rateMicros(from: Long, to: Long): Long = if (from <= 0) 0L else to * MICRO / from
 
-/** Leading glyph per expense kind. Text, so no material-icons artifact just for three shapes. */
+/**
+ * Marks the two kinds that are *not* an ordinary expense. Blank for [Kind.EXPENSE]: a bullet in
+ * front of every row and of the "Expense" tab marked nothing, since that is the default case.
+ * These stay characters rather than icons because they are read as part of a line of text, not
+ * tapped — see the icon rule in CLAUDE.md.
+ */
 fun Kind.glyph(): String =
   when (this) {
-    Kind.EXPENSE -> "•"
+    Kind.EXPENSE -> ""
     Kind.REIMBURSEMENT -> "↩"
     Kind.CONVERSION -> "⇄"
   }
@@ -89,7 +94,9 @@ fun CurrencyField(value: String, onChange: (String) -> Unit, modifier: Modifier 
       { onChange(it.filter { c -> c.isLetter() }.take(3).uppercase()) },
       label = { Text("Cur") },
       singleLine = true,
-      trailingIcon = { TextButton(onClick = { open = true }) { Text("▾") } },
+      trailingIcon = {
+        IconButton(onClick = { open = true }) { Icon(painterResource(R.drawable.ic_arrow_drop_down), "Pick a currency") }
+      },
       modifier = Modifier.fillMaxWidth(),
     )
     DropdownMenu(open, onDismissRequest = { open = false }) {

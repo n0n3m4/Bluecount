@@ -13,6 +13,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -27,11 +29,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bluecount.EventRow
 import com.bluecount.Identity
+import com.bluecount.R
 import com.bluecount.shortId
 import kotlinx.coroutines.launch
 
@@ -47,13 +51,16 @@ fun EventsScreen(onOpen: (String) -> Unit, onScan: () -> Unit, onSettings: () ->
     topBar = {
       TopAppBar(
         title = { Text("Bluecount") },
-        actions = { TextButton(onClick = onSettings) { Text("Me") } },
+        actions = { IconButton(onClick = onSettings) { Icon(painterResource(R.drawable.ic_person), "You") } },
       )
     },
     floatingActionButton = {
+      // The text-only overload: the icon slot always reserves its 12dp spacer, so passing an empty
+      // one left both labels shoved off-centre. These keep words rather than icons because there is
+      // no glyph for "create an event" that anyone reads on the first try.
       Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        ExtendedFloatingActionButton(text = { Text("Scan QR") }, icon = {}, onClick = onScan)
-        ExtendedFloatingActionButton(text = { Text("New event") }, icon = {}, onClick = { creating = true })
+        ExtendedFloatingActionButton(onClick = onScan) { Text("Scan QR") }
+        ExtendedFloatingActionButton(onClick = { creating = true }) { Text("New event") }
       }
     },
   ) { pad ->

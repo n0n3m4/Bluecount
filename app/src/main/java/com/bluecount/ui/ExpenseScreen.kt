@@ -196,7 +196,7 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
             },
             shape = SegmentedButtonDefaults.itemShape(i, Kind.entries.size),
           ) {
-            Text("${k.glyph()} ${k.label()}")
+            Text("${k.glyph()} ${k.label()}".trim())
           }
         }
       }

@@ -73,7 +73,7 @@ fun EventScreen(
         title = { Text(s?.name?.ifBlank { "Event" } ?: "…") },
         navigationIcon = { BackButton(onBack) },
         actions = {
-          TextButton(onClick = onShare) { Text("Invite") }
+          IconButton(onClick = onShare) { Icon(painterResource(R.drawable.ic_person_add), "Invite") }
           // A TextButton here was a 64dp-wide stadium pill around a tiny glyph, next to a round
           // 48dp back button; an IconButton is the square, centred thing an app bar expects.
           IconButton(onClick = { menu = true }) { Icon(painterResource(R.drawable.ic_more_vert), "More") }
@@ -177,7 +177,7 @@ private fun ExpenseList(s: EventState, onExpense: (String?) -> Unit) {
 @Composable
 private fun ExpenseRow(e: Expense, s: EventState, onClick: () -> Unit) {
   Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-    Text(e.kind.glyph(), Modifier.padding(end = 12.dp))
+    e.kind.glyph().takeIf { it.isNotEmpty() }?.let { Text(it, Modifier.padding(end = 12.dp)) }
     Column(Modifier.weight(1f)) {
       Text(e.title.ifBlank { e.kind.label() })
       Text(
