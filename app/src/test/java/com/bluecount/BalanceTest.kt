@@ -29,14 +29,15 @@ class BalanceTest {
     }
 
     val state = fold(log.ops)
-    assertEquals(0L, state.balances.values.sum())
+    val eur = state.balances.getValue("EUR")
+    assertEquals(0L, eur.values.sum())
     assertEquals(3, state.expenses.size)
     assertEquals("Ski trip", state.name)
     assertEquals("Alice", state.nick(alice.id))
 
-    val transfers = settleUp(state.balances)
+    val transfers = settleUp(eur)
     assertTrue("${transfers.size} transfers", transfers.size <= everyone.size - 1)
-    val after = state.balances.toMutableMap()
+    val after = eur.toMutableMap()
     for (t in transfers) {
       after[t.from] = after.getValue(t.from) + t.cents
       after[t.to] = after.getValue(t.to) - t.cents
@@ -66,7 +67,8 @@ class BalanceTest {
 
     val state = fold(log.ops)
     assertTrue(state.expenses.isEmpty())
-    assertTrue(state.balances.values.all { it == 0L })
+    // Nothing left to owe in any currency at all, so there is not even a currency key.
+    assertTrue(state.balances.isEmpty())
     // The delete is still in the log; nothing was rewritten.
     assertEquals(6, log.ops.size)
   }
@@ -75,12 +77,12 @@ class BalanceTest {
   fun `reimbursement moves the balance back towards zero`() {
     val log = trip()
     log.add(alice) { id -> Put(id, title = "Taxi", cents = 1_000, payer = alice.id, shares = mapOf(alice.id to 1L, bob.id to 1L)) }
-    assertEquals(500L, fold(log.ops).balances[alice.id])
+    assertEquals(500L, fold(log.ops).balances.getValue("EUR")[alice.id])
 
     log.add(bob) { id ->
       Put(id, title = "Paid back", cents = 500, payer = bob.id, kind = Kind.REIMBURSEMENT, shares = mapOf(alice.id to 1L))
     }
-    assertTrue(fold(log.ops).balances.values.all { it == 0L })
+    assertTrue(fold(log.ops).balances.getValue("EUR").values.all { it == 0L })
   }
 
   @Test

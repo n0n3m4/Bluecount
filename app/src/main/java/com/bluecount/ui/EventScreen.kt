@@ -169,11 +169,17 @@ private fun ExpenseList(s: EventState, onExpense: (String?) -> Unit) {
 @Composable
 private fun ExpenseRow(e: Expense, s: EventState, onClick: () -> Unit) {
   Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+    Text(e.kind.glyph(), Modifier.padding(end = 12.dp))
     Column(Modifier.weight(1f)) {
-      Text(e.title.ifBlank { if (e.kind == Kind.REIMBURSEMENT) "Payment" else "Expense" })
+      Text(e.title.ifBlank { e.kind.label() })
       Text(
         buildString {
-          append(if (e.kind == Kind.REIMBURSEMENT) "${s.nick(e.payer)} paid back" else "paid by ${s.nick(e.payer)}")
+          val to = e.shares.keys.singleOrNull()
+          when (e.kind) {
+            Kind.REIMBURSEMENT -> append("${s.nick(e.payer)} paid back" + if (to != null) " ${s.nick(to)}" else "")
+            Kind.CONVERSION -> append("${s.nick(e.payer)} → ${to?.let { s.nick(it) } ?: "?"} · ${e.toCents.money(e.toCurrency)}")
+            Kind.EXPENSE -> append("paid by ${s.nick(e.payer)}")
+          }
           append(" · ")
           append(LocalDate.ofEpochDay(e.date))
         },
@@ -181,57 +187,82 @@ private fun ExpenseRow(e: Expense, s: EventState, onClick: () -> Unit) {
         color = MaterialTheme.colorScheme.outline,
       )
     }
-    Text("${e.cents.money()} ${s.currency}", fontWeight = FontWeight.Bold)
+    Text(e.cents.money(e.currency), fontWeight = FontWeight.Bold)
   }
 }
 
 @Composable
 private fun Balances(s: EventState, eventId: String) {
-  var recording by remember { mutableStateOf<Transfer?>(null) }
+  var recording by remember { mutableStateOf<Pair<String, Transfer>?>(null) }
   val scope = rememberCoroutineScope()
-  val transfers = remember(s.balances) { settleUp(s.balances) }
+  // Independently per currency: settleUp() knows nothing about currencies and must not start to.
+  val transfers = remember(s.balances) { s.balances.mapValues { (_, b) -> settleUp(b) } }
+  // A header per currency would be noise on the single-currency event that most of these are.
+  val headed = s.balances.size > 1
+
+  if (s.balances.isEmpty()) {
+    Empty("Nothing to settle yet.")
+    return
+  }
 
   LazyColumn {
-    items(s.balances.entries.sortedByDescending { it.value }.toList(), key = { it.key }) { (id, cents) ->
-      Row(Modifier.fillMaxWidth().padding(16.dp)) {
-        Text(s.nick(id) + if (id == repo.me) " (you)" else "", Modifier.weight(1f))
+    s.balances.forEach { (cur, balances) ->
+      if (headed) {
+        item(key = "h/$cur") {
+          Text(
+            cur,
+            Modifier.fillMaxWidth().padding(16.dp, 24.dp, 16.dp, 4.dp),
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.primary,
+          )
+          HorizontalDivider()
+        }
+      }
+
+      items(balances.entries.sortedByDescending { it.value }.toList(), key = { "$cur/${it.key}" }) { (id, cents) ->
+        Row(Modifier.fillMaxWidth().padding(16.dp)) {
+          Text(s.nick(id) + if (id == repo.me) " (you)" else "", Modifier.weight(1f))
+          Text(
+            cents.money(cur),
+            color =
+              when {
+                cents > 0 -> MaterialTheme.colorScheme.primary
+                cents < 0 -> MaterialTheme.colorScheme.error
+                else -> MaterialTheme.colorScheme.outline
+              },
+          )
+        }
+        HorizontalDivider()
+      }
+
+      item(key = "s/$cur") {
         Text(
-          "${cents.money()} ${s.currency}",
-          color =
-            when {
-              cents > 0 -> MaterialTheme.colorScheme.primary
-              cents < 0 -> MaterialTheme.colorScheme.error
-              else -> MaterialTheme.colorScheme.outline
-            },
+          "Settle up",
+          Modifier.padding(16.dp, 24.dp, 16.dp, 8.dp),
+          style = MaterialTheme.typography.titleMedium,
         )
       }
-      HorizontalDivider()
-    }
-
-    item {
-      Text(
-        "Settle up",
-        Modifier.padding(16.dp, 24.dp, 16.dp, 8.dp),
-        style = MaterialTheme.typography.titleMedium,
-      )
-    }
-    if (transfers.isEmpty()) {
-      item { Text("Everyone is square.", Modifier.padding(16.dp, 0.dp), color = MaterialTheme.colorScheme.outline) }
-    }
-    items(transfers, key = { "${it.from}/${it.to}" }) { t ->
-      Row(Modifier.fillMaxWidth().padding(16.dp, 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text("${s.nick(t.from)} → ${s.nick(t.to)}", Modifier.weight(1f))
-        Text("${t.cents.money()} ${s.currency}")
-        TextButton(onClick = { recording = t }) { Text("Record") }
+      val ts = transfers[cur].orEmpty()
+      if (ts.isEmpty()) {
+        item(key = "q/$cur") {
+          Text("Everyone is square in $cur.", Modifier.padding(16.dp, 0.dp), color = MaterialTheme.colorScheme.outline)
+        }
+      }
+      items(ts, key = { "$cur/${it.from}/${it.to}" }) { t ->
+        Row(Modifier.fillMaxWidth().padding(16.dp, 4.dp), verticalAlignment = Alignment.CenterVertically) {
+          Text("${s.nick(t.from)} → ${s.nick(t.to)}", Modifier.weight(1f))
+          Text(t.cents.money(cur))
+          TextButton(onClick = { recording = cur to t }) { Text("Record") }
+        }
       }
     }
   }
 
-  recording?.let { t ->
+  recording?.let { (cur, t) ->
     AlertDialog(
       onDismissRequest = { recording = null },
-      title = { Text("Record payment") },
-      text = { Text("${s.nick(t.from)} gave ${t.cents.money()} ${s.currency} to ${s.nick(t.to)} in cash.") },
+      title = { Text("Record payback") },
+      text = { Text("${s.nick(t.from)} gave ${t.cents.money(cur)} to ${s.nick(t.to)} in cash.") },
       confirmButton = {
         TextButton(
           onClick = {
@@ -240,12 +271,13 @@ private fun Balances(s: EventState, eventId: String) {
               repo.append(eventId) { id ->
                 Put(
                   id = id,
-                  title = "Payment",
+                  title = "Payback",
                   cents = t.cents,
                   date = LocalDate.now().toEpochDay(),
                   payer = t.from,
                   shares = mapOf(t.to to 1L),
                   kind = Kind.REIMBURSEMENT,
+                  currency = cur,
                 )
               }
             }

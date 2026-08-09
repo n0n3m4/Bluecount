@@ -78,8 +78,19 @@ enum class SplitMode {
 
 enum class Kind {
   EXPENSE,
-  /** Cash handed over to settle up. Same maths, different wording in the UI. */
+  /**
+   * Cash handed over to settle up, in part or in full. Always one-to-one. Same maths as an expense
+   * with a single participant; "Payback" in the UI. The wire name predates that wording and is
+   * deliberately not renamed — an enum entry is part of the signed payload, so an old op carrying
+   * `REIMBURSEMENT` would stop decoding.
+   */
   REIMBURSEMENT,
+  /**
+   * Net-zero swap between two people: [Put.cents] of [Put.currency] one way, [Put.toCents] of
+   * [Put.toCurrency] back. Manual cross-currency netting — there is no rate table anywhere, the
+   * rate is exactly `toCents / cents` of this one op and applies to nothing else.
+   */
+  CONVERSION,
 }
 
 @Serializable
@@ -110,6 +121,19 @@ data class Put(
   val mode: SplitMode = SplitMode.EQUAL,
   val shares: Map<UserId, Long> = emptyMap(),
   val kind: Kind = Kind.EXPENSE,
+  /**
+   * Blank means "the event default from [Genesis]", resolved in `fold()` and never stored resolved,
+   * so ops written before currencies existed mean exactly what they always meant.
+   *
+   * ponytail: a build predating this field folds a foreign-currency Put into the event currency
+   * (`ignoreUnknownKeys`), and one predating [Kind.CONVERSION] drops such a Put entirely (unknown
+   * enum → payload does not decode → stored and relayed but not folded). The second degrades
+   * safely, the first mis-sums. Acceptable pre-release; upgrade path is a version field in Genesis.
+   */
+  val currency: String = "",
+  /** [Kind.CONVERSION] only: what the single participant hands back, in [toCurrency]. */
+  val toCents: Long = 0,
+  val toCurrency: String = "",
 ) : Payload
 
 /** Tolerant on purpose: an op we cannot parse is still stored and relayed, just not folded. */

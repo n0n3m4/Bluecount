@@ -103,6 +103,15 @@ class Repo(context: Context, val signer: Signer) : OpStore {
     get() = prefs.getString("nick", "") ?: ""
     set(v) = prefs.edit().putString("nick", v).apply()
 
+  /**
+   * Quick picks offered by the currency fields. Purely a convenience list: free text still wins, so
+   * any 3-letter code works whether or not it is in here. Not synced — this is one user's shortlist.
+   */
+  var currencies: List<String>
+    get() = prefs.getString("currencies", null)?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() }
+      ?.takeIf { it.isNotEmpty() } ?: DEFAULT_CURRENCIES
+    set(v) = prefs.edit().putString("currencies", v.joinToString(",")).apply()
+
   /** Whether this phone beacons and listens for beacons (Wake.kt). The only off switch. */
   var wakeEnabled: Boolean
     get() = prefs.getBoolean("wake", true)
@@ -184,3 +193,6 @@ class Repo(context: Context, val signer: Signer) : OpStore {
 }
 
 private fun randomEventId(): String = ByteArray(16).also { java.security.SecureRandom().nextBytes(it) }.b64()
+
+/** The shortlist a fresh install starts with. Editable in settings; the first one is the default. */
+val DEFAULT_CURRENCIES = listOf("KZT", "RUB", "EGP", "USD", "EUR")

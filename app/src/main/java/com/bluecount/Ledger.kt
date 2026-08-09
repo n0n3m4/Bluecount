@@ -14,6 +14,11 @@ data class Expense(
   val mode: SplitMode,
   val shares: Map<UserId, Long>,
   val kind: Kind,
+  /** Always resolved — [Put.currency] blank means the event default, and that is settled here. */
+  val currency: String,
+  /** [Kind.CONVERSION] only: the amount handed back the other way. Zero otherwise. */
+  val toCents: Long,
+  val toCurrency: String,
   /** Author of the most recent op touching this expense — anyone in the event may edit. */
   val lastEditor: UserId,
 )
@@ -22,12 +27,17 @@ data class Transfer(val from: UserId, val to: UserId, val cents: Long)
 
 data class EventState(
   val name: String,
+  /** The event default, from [Genesis]. What the currency pickers pre-select; not a total. */
   val currency: String,
   /** Every id ever seen in this event, mapped to its nickname (or a short id if never claimed). */
   val members: Map<UserId, String>,
   val expenses: List<Expense>,
-  /** Positive = the group owes them. Always sums to zero. */
-  val balances: Map<UserId, Long>,
+  /**
+   * Balances per currency, counted **independently** — nothing here is ever converted, because a
+   * rate is a matter of opinion and two phones must not hold different opinions. Positive = the
+   * group owes them. Every inner map sums to zero. Ordered event default first, then alphabetically.
+   */
+  val balances: Map<String, Map<UserId, Long>>,
 ) {
   fun nick(id: UserId): String = members[id] ?: id.shortId()
 }
@@ -61,20 +71,40 @@ fun fold(ops: List<Op>, fallbackName: String = "", fallbackCurrency: String = ""
     puts.values
       .filterNot { (p, _) -> p.deleted }
       .map { (p, editor) ->
-        Expense(p.id, p.title, p.cents, p.date, p.payer, p.mode, p.shares, p.kind, editor)
+        // Resolved here rather than in the loop above: a Put can sort ahead of the Genesis that
+        // names the default, and an expense must not depend on which order it was folded in.
+        Expense(
+          p.id, p.title, p.cents, p.date, p.payer, p.mode, p.shares, p.kind,
+          p.currency.ifBlank { currency }, p.toCents, p.toCurrency, editor,
+        )
       }
       .sortedWith(compareByDescending<Expense> { it.date }.thenByDescending { it.id })
 
   val members = (seen + expenses.flatMap { it.shares.keys + it.payer }).filter { it.isNotEmpty() }
-  val balances = members.associateWith { 0L }.toMutableMap()
+  val balances = mutableMapOf<String, MutableMap<UserId, Long>>()
   for (e in expenses) {
-    balances[e.payer] = (balances[e.payer] ?: 0L) + e.cents
-    for ((who, owed) in split(e.cents, e.mode, e.shares)) {
-      balances[who] = (balances[who] ?: 0L) - owed
+    val b = balances.getOrPut(e.currency) { mutableMapOf() }
+    b[e.payer] = (b[e.payer] ?: 0L) + e.cents
+    for ((who, owed) in split(e.cents, e.mode, e.shares)) b[who] = (b[who] ?: 0L) - owed
+    // A conversion is the same two people mirrored in the other currency, so each currency stays
+    // net zero on its own. split() rather than assuming one participant: it sums back exactly even
+    // if a peer signs a conversion with several, so the zero-sum invariant survives a malformed op.
+    if (e.kind == Kind.CONVERSION && e.toCurrency.isNotEmpty() && e.toCents > 0) {
+      val t = balances.getOrPut(e.toCurrency) { mutableMapOf() }
+      t[e.payer] = (t[e.payer] ?: 0L) - e.toCents
+      for ((who, got) in split(e.toCents, SplitMode.EQUAL, e.shares)) t[who] = (t[who] ?: 0L) + got
     }
   }
 
-  return EventState(name, currency, members.associateWith { nicks[it] ?: it.shortId() }, expenses, balances)
+  // Event default first so the common single-currency event reads as it always did.
+  val ordered = balances.keys.sortedBy { if (it == currency) "" else it }
+  return EventState(
+    name,
+    currency,
+    members.associateWith { nicks[it] ?: it.shortId() },
+    expenses,
+    ordered.associateWith { balances.getValue(it).toMap() },
+  )
 }
 
 /**
