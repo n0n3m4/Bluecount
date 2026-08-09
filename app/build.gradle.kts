@@ -16,6 +16,18 @@ android {
         versionName = "1.0"
     }
 
+    signingConfigs {
+        // The SDK's auto-generated ~/.android/debug.keystore is different on every machine and on
+        // every CI runner, so debug APKs from two builds cannot upgrade each other. This is that
+        // same keystore (standard alias/passwords), committed — a debug key is not a secret.
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
