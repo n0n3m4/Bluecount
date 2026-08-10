@@ -38,6 +38,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.bluecount.R
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -97,17 +99,16 @@ fun ShareScreen(eventId: String, onBack: () -> Unit) {
       s?.let { qrBitmap(Invite(eventId, it.name, it.currency).toUri()) }
     }
 
-  Scaffold(topBar = { TopAppBar(title = { Text("Invite") }, navigationIcon = { BackButton(onBack) }) }) { pad ->
+  Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.invite)) }, navigationIcon = { BackButton(onBack) }) }) { pad ->
     Column(
       Modifier.padding(pad).padding(24.dp).fillMaxWidth(),
       horizontalAlignment = Alignment.CenterHorizontally,
       verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
       Text(s?.name.orEmpty(), style = MaterialTheme.typography.headlineSmall)
-      bitmap?.let { Image(it.asImageBitmap(), contentDescription = "Event QR code", modifier = Modifier.fillMaxWidth().aspectRatio(1f)) }
+      bitmap?.let { Image(it.asImageBitmap(), contentDescription = stringResource(R.string.cd_event_qr), modifier = Modifier.fillMaxWidth().aspectRatio(1f)) }
       Text(
-        "Have the others scan this. Nothing is uploaded anywhere — they still need to be near " +
-          "one of you for the expenses themselves to arrive.",
+        stringResource(R.string.invite_hint),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.outline,
       )
@@ -135,9 +136,9 @@ fun ScanScreen(onBack: () -> Unit, onJoined: (String) -> Unit) {
   var found by remember { mutableStateOf<Invite?>(null) }
   var nick by remember { mutableStateOf(repo.nickname) }
 
-  Scaffold(topBar = { TopAppBar(title = { Text("Scan invite") }, navigationIcon = { BackButton(onBack) }) }) { pad ->
+  Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.scan_invite)) }, navigationIcon = { BackButton(onBack) }) }) { pad ->
     if (!granted) {
-      Empty("Camera access is needed to scan an invite.", Modifier.padding(pad))
+      Empty(stringResource(R.string.camera_needed), Modifier.padding(pad))
       return@Scaffold
     }
 
@@ -185,9 +186,9 @@ fun ScanScreen(onBack: () -> Unit, onJoined: (String) -> Unit) {
   found?.let { invite ->
     AlertDialog(
       onDismissRequest = { found = null },
-      title = { Text("Join \"${invite.name}\"?") },
+      title = { Text(stringResource(R.string.join_title, invite.name)) },
       text = {
-        OutlinedTextField(nick, { nick = it }, label = { Text("Your name in this event") }, singleLine = true)
+        OutlinedTextField(nick, { nick = it }, label = { Text(stringResource(R.string.your_name_in_event)) }, singleLine = true)
       },
       confirmButton = {
         TextButton(
@@ -199,10 +200,10 @@ fun ScanScreen(onBack: () -> Unit, onJoined: (String) -> Unit) {
             }
           },
         ) {
-          Text("Join")
+          Text(stringResource(R.string.join))
         }
       },
-      dismissButton = { TextButton(onClick = { found = null }) { Text("Cancel") } },
+      dismissButton = { TextButton(onClick = { found = null }) { Text(stringResource(R.string.cancel)) } },
     )
   }
 }

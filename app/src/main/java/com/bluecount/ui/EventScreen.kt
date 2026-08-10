@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
@@ -74,23 +75,23 @@ fun EventScreen(
   Scaffold(
     topBar = {
       TopAppBar(
-        title = { Text(s?.name?.ifBlank { "Event" } ?: "…") },
+        title = { Text(s?.name?.ifBlank { stringResource(R.string.event) } ?: "…") },
         navigationIcon = { BackButton(onBack) },
         actions = {
-          IconButton(onClick = onShare) { Icon(painterResource(R.drawable.ic_person_add), "Invite") }
+          IconButton(onClick = onShare) { Icon(painterResource(R.drawable.ic_person_add), stringResource(R.string.invite)) }
           // A TextButton here was a 64dp-wide stadium pill around a tiny glyph, next to a round
           // 48dp back button; an IconButton is the square, centred thing an app bar expects.
-          IconButton(onClick = { menu = true }) { Icon(painterResource(R.drawable.ic_more_vert), "More") }
+          IconButton(onClick = { menu = true }) { Icon(painterResource(R.drawable.ic_more_vert), stringResource(R.string.cd_more)) }
           DropdownMenu(menu, onDismissRequest = { menu = false }) {
             DropdownMenuItem(
-              text = { Text("Sync now") },
+              text = { Text(stringResource(R.string.sync_now)) },
               onClick = {
                 menu = false
                 sync.kick()
               },
             )
             DropdownMenuItem(
-              text = { Text(if (wake) "Wake nearby phones: on" else "Wake nearby phones: off") },
+              text = { Text(stringResource(if (wake) R.string.wake_on else R.string.wake_off)) },
               onClick = {
                 menu = false
                 wake = !wake
@@ -99,14 +100,14 @@ fun EventScreen(
               },
             )
             DropdownMenuItem(
-              text = { Text("Export CSV") },
+              text = { Text(stringResource(R.string.export_csv)) },
               onClick = {
                 menu = false
                 scope.launch { shareCsv(context, s?.name.orEmpty(), repo.exportCsv(eventId)) }
               },
             )
             DropdownMenuItem(
-              text = { Text("Leave event") },
+              text = { Text(stringResource(R.string.leave_event)) },
               onClick = {
                 menu = false
                 leaving = true
@@ -118,14 +119,14 @@ fun EventScreen(
     },
     floatingActionButton = {
       if (s != null) {
-        FloatingActionButton(onClick = { onExpense(null) }) { Icon(painterResource(R.drawable.ic_add), "Add expense") }
+        FloatingActionButton(onClick = { onExpense(null) }) { Icon(painterResource(R.drawable.ic_add), stringResource(R.string.cd_add_expense)) }
       }
     },
   ) { pad ->
     Column(Modifier.padding(pad)) {
       PrimaryTabRow(tab) {
-        Tab(tab == 0, onClick = { tab = 0 }, text = { Text("Expenses") })
-        Tab(tab == 1, onClick = { tab = 1 }, text = { Text("Balances") })
+        Tab(tab == 0, onClick = { tab = 0 }, text = { Text(stringResource(R.string.tab_expenses)) })
+        Tab(tab == 1, onClick = { tab = 1 }, text = { Text(stringResource(R.string.tab_balances)) })
       }
       // Without this, "nobody else is nearby" and "Nearby permission denied" look identical: an
       // event with one member and no explanation.
@@ -146,11 +147,10 @@ fun EventScreen(
   if (leaving) {
     AlertDialog(
       onDismissRequest = { leaving = false },
-      title = { Text("Leave event?") },
+      title = { Text(stringResource(R.string.leave_title)) },
       text = {
         Text(
-          "This removes the event and its history from this phone only. Everyone else keeps their " +
-            "copy, and scanning the QR again brings it all back."
+          stringResource(R.string.leave_body)
         )
       },
       confirmButton = {
@@ -163,10 +163,10 @@ fun EventScreen(
             }
           }
         ) {
-          Text("Leave")
+          Text(stringResource(R.string.leave))
         }
       },
-      dismissButton = { TextButton(onClick = { leaving = false }) { Text("Cancel") } },
+      dismissButton = { TextButton(onClick = { leaving = false }) { Text(stringResource(R.string.cancel)) } },
     )
   }
 }
@@ -183,17 +183,17 @@ private fun shareCsv(context: Context, name: String, csv: String) {
         putExtra(Intent.EXTRA_STREAM, uri)
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
       },
-      "Export CSV",
+      context.getString(R.string.export_csv),
     )
   )
 }
 
-private fun safeName(name: String) = name.replace(Regex("[^A-Za-z0-9_-]"), "_").trim('_').ifBlank { "event" }
+private fun safeName(name: String) = name.replace(Regex("""[^\p{L}\p{N}_-]"""), "_").trim('_').ifBlank { "event" }
 
 @Composable
 private fun ExpenseList(s: EventState, onExpense: (String?) -> Unit) {
   if (s.expenses.isEmpty()) {
-    Empty("No expenses yet.")
+    Empty(stringResource(R.string.empty_expenses))
     return
   }
   LazyColumn {
@@ -220,9 +220,21 @@ private fun ExpenseRow(e: Expense, s: EventState, onClick: () -> Unit) {
         buildString {
           val to = e.shares.keys.singleOrNull()
           when (e.kind) {
-            Kind.REIMBURSEMENT -> append("${s.nick(e.payer)} paid back" + if (to != null) " ${s.nick(to)}" else "")
-            Kind.CONVERSION -> append("${s.nick(e.payer)} → ${to?.let { s.nick(it) } ?: "?"} · ${e.toCents.money(e.toCurrency)}")
-            Kind.EXPENSE -> append("paid by ${s.nick(e.payer)}")
+            Kind.REIMBURSEMENT ->
+              append(
+                if (to != null) stringResource(R.string.row_payback_to, s.nick(e.payer), s.nick(to))
+                else stringResource(R.string.row_payback, s.nick(e.payer))
+              )
+            Kind.CONVERSION ->
+              append(
+                stringResource(
+                  R.string.row_conversion,
+                  s.nick(e.payer),
+                  to?.let { s.nick(it) } ?: "?",
+                  e.toCents.money(e.toCurrency),
+                )
+              )
+            Kind.EXPENSE -> append(stringResource(R.string.row_expense, s.nick(e.payer)))
           }
           append(" · ")
           append(whenText)
@@ -236,7 +248,7 @@ private fun ExpenseRow(e: Expense, s: EventState, onClick: () -> Unit) {
     Column(horizontalAlignment = Alignment.End) {
       Text(e.cents.money(e.currency), fontWeight = FontWeight.Bold)
       Text(
-        "by ${s.nick(e.lastEditor)}",
+        stringResource(R.string.row_author, s.nick(e.lastEditor)),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.outline,
       )
@@ -254,7 +266,7 @@ private fun Balances(s: EventState, eventId: String) {
   val headed = s.balances.size > 1
 
   if (s.balances.isEmpty()) {
-    Empty("Nothing to settle yet.")
+    Empty(stringResource(R.string.empty_balances))
     return
   }
 
@@ -274,7 +286,7 @@ private fun Balances(s: EventState, eventId: String) {
 
       items(balances.entries.sortedByDescending { it.value }.toList(), key = { "$cur/${it.key}" }) { (id, cents) ->
         Row(Modifier.fillMaxWidth().padding(16.dp)) {
-          Text(s.nick(id) + if (id == repo.me) " (you)" else "", Modifier.weight(1f))
+          Text(if (id == repo.me) stringResource(R.string.name_you, s.nick(id)) else s.nick(id), Modifier.weight(1f))
           Text(
             cents.money(cur),
             color =
@@ -290,7 +302,7 @@ private fun Balances(s: EventState, eventId: String) {
 
       item(key = "s/$cur") {
         Text(
-          "Settle up",
+          stringResource(R.string.settle_up),
           Modifier.padding(16.dp, 24.dp, 16.dp, 8.dp),
           style = MaterialTheme.typography.titleMedium,
         )
@@ -298,14 +310,14 @@ private fun Balances(s: EventState, eventId: String) {
       val ts = transfers[cur].orEmpty()
       if (ts.isEmpty()) {
         item(key = "q/$cur") {
-          Text("Everyone is square in $cur.", Modifier.padding(16.dp, 0.dp), color = MaterialTheme.colorScheme.outline)
+          Text(stringResource(R.string.all_square, cur), Modifier.padding(16.dp, 0.dp), color = MaterialTheme.colorScheme.outline)
         }
       }
       items(ts, key = { "$cur/${it.from}/${it.to}" }) { t ->
         Row(Modifier.fillMaxWidth().padding(16.dp, 4.dp), verticalAlignment = Alignment.CenterVertically) {
           Text("${s.nick(t.from)} → ${s.nick(t.to)}", Modifier.weight(1f))
           Text(t.cents.money(cur))
-          TextButton(onClick = { recording = cur to t }) { Text("Record") }
+          TextButton(onClick = { recording = cur to t }) { Text(stringResource(R.string.record)) }
         }
       }
     }
@@ -314,8 +326,8 @@ private fun Balances(s: EventState, eventId: String) {
   recording?.let { (cur, t) ->
     AlertDialog(
       onDismissRequest = { recording = null },
-      title = { Text("Record payback") },
-      text = { Text("${s.nick(t.from)} gave ${t.cents.money(cur)} to ${s.nick(t.to)} in cash.") },
+      title = { Text(stringResource(R.string.record_payback_title)) },
+      text = { Text(stringResource(R.string.record_payback_body, s.nick(t.from), t.cents.money(cur), s.nick(t.to))) },
       confirmButton = {
         TextButton(
           onClick = {
@@ -324,7 +336,7 @@ private fun Balances(s: EventState, eventId: String) {
               repo.append(eventId) { id ->
                 Put(
                   id = id,
-                  title = "Payback",
+                  title = "",
                   cents = t.cents,
                   date = LocalDate.now().toEpochDay(),
                   at = System.currentTimeMillis(),
@@ -337,10 +349,10 @@ private fun Balances(s: EventState, eventId: String) {
             }
           }
         ) {
-          Text("Record")
+          Text(stringResource(R.string.record))
         }
       },
-      dismissButton = { TextButton(onClick = { recording = null }) { Text("Cancel") } },
+      dismissButton = { TextButton(onClick = { recording = null }) { Text(stringResource(R.string.cancel)) } },
     )
   }
 }

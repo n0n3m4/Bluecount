@@ -43,6 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -51,6 +52,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bluecount.EventState
 import com.bluecount.Kind
 import com.bluecount.Put
+import com.bluecount.R
 import com.bluecount.SplitMode
 import com.bluecount.UserId
 import java.time.Instant
@@ -153,7 +155,19 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
   Scaffold(
     topBar = {
       TopAppBar(
-        title = { Text((if (expenseId == null) "New " else "Edit ") + kind.label().lowercase()) },
+        // Six whole strings rather than "New "/"Edit " glued onto a lowercased label: in an
+        // inflected language the noun changes shape and the fragments cannot be reassembled.
+        title = {
+          Text(
+            stringResource(
+              when (kind) {
+                Kind.EXPENSE -> if (expenseId == null) R.string.title_new_expense else R.string.title_edit_expense
+                Kind.REIMBURSEMENT -> if (expenseId == null) R.string.title_new_payback else R.string.title_edit_payback
+                Kind.CONVERSION -> if (expenseId == null) R.string.title_new_exchange else R.string.title_edit_exchange
+              }
+            )
+          )
+        },
         navigationIcon = { BackButton(onBack) },
         actions = {
           TextButton(
@@ -163,7 +177,7 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
                 repo.append(eventId) { newId ->
                   Put(
                     id = expenseId ?: newId,
-                    title = title.trim().ifEmpty { if (kind == Kind.EXPENSE) "" else kind.label() },
+                    title = title.trim(),
                     cents = cents!!,
                     at = at,
                     // The day is written too, for a build that predates `at` and as the list's fallback.
@@ -181,7 +195,7 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
               }
             },
           ) {
-            Text("Save")
+            Text(stringResource(R.string.save))
           }
         },
       )
@@ -226,14 +240,14 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
       OutlinedTextField(
         title,
         { title = it },
-        label = { Text("What for") },
+        label = { Text(stringResource(R.string.what_for)) },
         placeholder = { if (kind != Kind.EXPENSE) Text(kind.label()) },
         singleLine = true,
         modifier = Modifier.fillMaxWidth(),
       )
 
       AmountRow(
-        label = if (kind == Kind.CONVERSION) "Gives" else "Amount",
+        label = stringResource(if (kind == Kind.CONVERSION) R.string.gives else R.string.amount),
         amount = amount,
         onAmount = {
           amount = it
@@ -246,7 +260,7 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
 
       if (kind == Kind.CONVERSION) {
         AmountRow(
-          label = "Receives",
+          label = stringResource(R.string.receives),
           amount = toAmount,
           onAmount = {
             toAmount = it
@@ -264,7 +278,7 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
             rate = it
             reprice(cents, it.toMicrosOrNull())
           },
-          label = { Text("Rate: 1 ${currency.ifBlank { "?" }} = ? ${toCurrency.ifBlank { "?" }}") },
+          label = { Text(stringResource(R.string.rate_label, currency.ifBlank { "?" }, toCurrency.ifBlank { "?" })) },
           isError = rate.isNotEmpty() && rateM == null,
           keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
           singleLine = true,
@@ -272,7 +286,7 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
         )
         if (toCurrency.isNotBlank() && toCurrency == currency) {
           Text(
-            "An exchange needs two different currencies.",
+            stringResource(R.string.same_currency_error),
             color = MaterialTheme.colorScheme.error,
             style = MaterialTheme.typography.bodySmall,
           )
@@ -291,7 +305,7 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
       }
 
       Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(if (oneToOne) "From" else "Paid by", Modifier.weight(1f))
+        Text(stringResource(if (oneToOne) R.string.from else R.string.paid_by), Modifier.weight(1f))
         TextButton(onClick = { payerMenu = true }) { Text(s.nick(payer)) }
         DropdownMenu(payerMenu, onDismissRequest = { payerMenu = false }) {
           s.members.keys.forEach { id ->
@@ -313,7 +327,7 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
 
       if (oneToOne) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-          Text("To", Modifier.weight(1f))
+          Text(stringResource(R.string.to), Modifier.weight(1f))
           TextButton(onClick = { toMenu = true }) { Text(other?.let { s.nick(it) } ?: "—") }
           DropdownMenu(toMenu, onDismissRequest = { toMenu = false }) {
             s.members.keys.filter { it != payer }.forEach { id ->
@@ -331,9 +345,8 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
         Text(
           when (kind) {
             Kind.CONVERSION ->
-              "Net zero: the ${currency.ifBlank { "?" }} debt moves one way and the " +
-                "${toCurrency.ifBlank { "?" }} debt the other. Nothing changes hands overall."
-            else -> "Reduces what ${s.nick(payer)} owes, in ${currency.ifBlank { "?" }} only."
+              stringResource(R.string.conversion_hint, currency.ifBlank { "?" }, toCurrency.ifBlank { "?" })
+            else -> stringResource(R.string.payback_hint, s.nick(payer), currency.ifBlank { "?" })
           },
           style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.outline,
@@ -344,7 +357,7 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
 
       if (exactMismatch) {
         Text(
-          "The amounts add up to ${weights.values.sum().money()}, not ${cents.money()}.",
+          stringResource(R.string.exact_mismatch, weights.values.sum().money(), cents.money()),
           color = MaterialTheme.colorScheme.error,
           style = MaterialTheme.typography.bodySmall,
         )
@@ -361,7 +374,17 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
             }
           }
         ) {
-          Text("Delete ${kind.label().lowercase()}", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+          Text(
+            stringResource(
+              when (kind) {
+                Kind.EXPENSE -> R.string.delete_expense
+                Kind.REIMBURSEMENT -> R.string.delete_payback
+                Kind.CONVERSION -> R.string.delete_exchange
+              }
+            ),
+            color = MaterialTheme.colorScheme.error,
+            fontWeight = FontWeight.Bold,
+          )
         }
       }
     }
@@ -383,7 +406,7 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
             pickingDate = false
           }
         ) {
-          Text("OK")
+          Text(stringResource(R.string.ok))
         }
       },
     ) {
@@ -405,7 +428,7 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
             pickingTime = false
           }
         ) {
-          Text("OK")
+          Text(stringResource(R.string.ok))
         }
       },
     ) {
@@ -447,7 +470,7 @@ private fun SplitSection(
   weights: Map<UserId, Long>,
 ) {
   HorizontalDivider()
-  Text("Split", style = MaterialTheme.typography.titleMedium)
+  Text(stringResource(R.string.split), style = MaterialTheme.typography.titleMedium)
   SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
     SplitMode.entries.forEachIndexed { i, m ->
       SegmentedButton(
@@ -455,7 +478,15 @@ private fun SplitSection(
         onClick = { onMode(m) },
         shape = SegmentedButtonDefaults.itemShape(i, SplitMode.entries.size),
       ) {
-        Text(when (m) { SplitMode.EQUAL -> "Equally"; SplitMode.SHARES -> "Shares"; SplitMode.EXACT -> "Amounts" })
+        Text(
+          stringResource(
+            when (m) {
+              SplitMode.EQUAL -> R.string.split_equally
+              SplitMode.SHARES -> R.string.split_shares
+              SplitMode.EXACT -> R.string.split_amounts
+            }
+          )
+        )
       }
     }
   }
@@ -466,7 +497,7 @@ private fun SplitSection(
         checked = picked.containsKey(id),
         onCheckedChange = { on -> if (on) picked[id] = if (mode == SplitMode.EXACT) "" else "1" else picked.remove(id) },
       )
-      Text(s.nick(id) + if (id == repo.me) " (you)" else "", Modifier.weight(1f))
+      Text(if (id == repo.me) stringResource(R.string.name_you, s.nick(id)) else s.nick(id), Modifier.weight(1f))
       if (mode != SplitMode.EQUAL && picked.containsKey(id)) {
         OutlinedTextField(
           picked[id] ?: "",

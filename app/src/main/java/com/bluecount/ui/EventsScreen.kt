@@ -31,6 +31,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -51,8 +53,8 @@ fun EventsScreen(onOpen: (String) -> Unit, onScan: () -> Unit, onSettings: () ->
   Scaffold(
     topBar = {
       TopAppBar(
-        title = { Text("Bluecount") },
-        actions = { IconButton(onClick = onSettings) { Icon(painterResource(R.drawable.ic_person), "You") } },
+        title = { Text(stringResource(R.string.app_name)) },
+        actions = { IconButton(onClick = onSettings) { Icon(painterResource(R.drawable.ic_person), stringResource(R.string.settings_title)) } },
       )
     },
     floatingActionButton = {
@@ -63,16 +65,16 @@ fun EventsScreen(onOpen: (String) -> Unit, onScan: () -> Unit, onSettings: () ->
           onClick = onScan,
           containerColor = MaterialTheme.colorScheme.secondaryContainer,
         ) {
-          Icon(painterResource(R.drawable.ic_qr_code_scanner), "Scan a friend's QR code")
+          Icon(painterResource(R.drawable.ic_qr_code_scanner), stringResource(R.string.cd_scan))
         }
         FloatingActionButton(onClick = { creating = true }) {
-          Icon(painterResource(R.drawable.ic_add), "New event")
+          Icon(painterResource(R.drawable.ic_add), stringResource(R.string.cd_new_event))
         }
       }
     },
   ) { pad ->
     if (events.isEmpty()) {
-      Empty("No events yet.\n\nCreate one, or scan a friend's QR code to join theirs.", Modifier.padding(pad))
+      Empty(stringResource(R.string.empty_events), Modifier.padding(pad))
     } else {
       LazyColumn(Modifier.padding(pad)) {
         items(events, key = { it.id }) { row ->
@@ -110,6 +112,8 @@ private fun EventCard(row: EventRow, onClick: () -> Unit) {
   // One line per currency the user is actually in the red or black in. Nothing is netted across
   // currencies here — a single "you owe" number would have to pick a rate, and there is none.
   val mine = state?.balances?.mapNotNull { (cur, b) -> b[repo.me]?.takeIf { it != 0L }?.let { cur to it } }.orEmpty()
+  val members = state?.members?.size ?: 1
+  val expenses = state?.expenses?.size ?: 0
 
   Row(
     Modifier.fillMaxWidth().clickable(onClick = onClick).padding(16.dp),
@@ -118,7 +122,8 @@ private fun EventCard(row: EventRow, onClick: () -> Unit) {
     Column(Modifier.weight(1f)) {
       Text(state?.name?.takeIf { it.isNotBlank() } ?: row.name, style = MaterialTheme.typography.titleMedium)
       Text(
-        "${state?.members?.size ?: 1} people · ${state?.expenses?.size ?: 0} expenses",
+        pluralStringResource(R.plurals.n_people, members, members) + " · " +
+          pluralStringResource(R.plurals.n_expenses, expenses, expenses),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.outline,
       )
@@ -126,10 +131,10 @@ private fun EventCard(row: EventRow, onClick: () -> Unit) {
     Column(horizontalAlignment = Alignment.End) {
       Text(
         when {
-          mine.isEmpty() -> "settled"
-          mine.all { it.second > 0 } -> "you are owed"
-          mine.all { it.second < 0 } -> "you owe"
-          else -> "owed / owing"
+          mine.isEmpty() -> stringResource(R.string.balance_settled)
+          mine.all { it.second > 0 } -> stringResource(R.string.balance_owed)
+          mine.all { it.second < 0 } -> stringResource(R.string.balance_owing)
+          else -> stringResource(R.string.balance_mixed)
         },
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.outline,
@@ -158,20 +163,20 @@ private fun WelcomeDialog(onDone: (String) -> Unit) {
     // No dismiss and no cancel: there is nothing behind this on a fresh install, and every path
     // out of the events list needs the name anyway.
     onDismissRequest = {},
-    title = { Text("Welcome to Bluecount") },
+    title = { Text(stringResource(R.string.welcome_title)) },
     text = {
       Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("What should we call you? This is the name the others see next to whatever you add.")
-        OutlinedTextField(nick, { nick = it }, label = { Text("Your name") }, singleLine = true)
+        Text(stringResource(R.string.welcome_body))
+        OutlinedTextField(nick, { nick = it }, label = { Text(stringResource(R.string.your_name)) }, singleLine = true)
         Text(
-          "Kept on this phone. You can change it any time under “Me”.",
+          stringResource(R.string.welcome_hint),
           style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.outline,
         )
       }
     },
     confirmButton = {
-      TextButton(enabled = nick.isNotBlank(), onClick = { onDone(nick.trim()) }) { Text("Continue") }
+      TextButton(enabled = nick.isNotBlank(), onClick = { onDone(nick.trim()) }) { Text(stringResource(R.string.continue_)) }
     },
   )
 }
@@ -186,17 +191,17 @@ private fun NewEventDialog(onDismiss: () -> Unit, onCreate: (String, String, Str
 
   AlertDialog(
     onDismissRequest = onDismiss,
-    title = { Text("New event") },
+    title = { Text(stringResource(R.string.new_event)) },
     text = {
       Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true)
+        OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.event_name)) }, singleLine = true)
         CurrencyField(currency, { currency = it })
         Text(
-          "The default for new expenses. Any expense can use another currency.",
+          stringResource(R.string.currency_hint),
           style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.outline,
         )
-        OutlinedTextField(nick, { nick = it }, label = { Text("Your name in this event") }, singleLine = true)
+        OutlinedTextField(nick, { nick = it }, label = { Text(stringResource(R.string.your_name_in_event)) }, singleLine = true)
       }
     },
     confirmButton = {
@@ -204,10 +209,10 @@ private fun NewEventDialog(onDismiss: () -> Unit, onCreate: (String, String, Str
         enabled = name.isNotBlank() && nick.isNotBlank() && currency.isNotBlank(),
         onClick = { onCreate(name.trim(), currency.trim(), nick.trim()) },
       ) {
-        Text("Create")
+        Text(stringResource(R.string.create))
       }
     },
-    dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
   )
 }
 
@@ -217,7 +222,7 @@ fun SettingsScreen(onBack: () -> Unit) {
   var nick by remember { mutableStateOf(repo.nickname) }
   var currencies by remember { mutableStateOf(repo.currencies.joinToString(", ")) }
 
-  Scaffold(topBar = { TopAppBar(title = { Text("You") }, navigationIcon = { BackButton(onBack) }) }) { pad ->
+  Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.settings_title)) }, navigationIcon = { BackButton(onBack) }) }) { pad ->
     Column(Modifier.padding(pad).padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
       OutlinedTextField(
         nick,
@@ -225,8 +230,8 @@ fun SettingsScreen(onBack: () -> Unit) {
           nick = it
           repo.nickname = it
         },
-        label = { Text("Default name") },
-        supportingText = { Text("Used when you create or join an event. Changing it here does not rename you in events you already joined.") },
+        label = { Text(stringResource(R.string.default_name)) },
+        supportingText = { Text(stringResource(R.string.default_name_hint)) },
         singleLine = true,
         modifier = Modifier.fillMaxWidth(),
       )
@@ -238,19 +243,17 @@ fun SettingsScreen(onBack: () -> Unit) {
           // defaults; the text stays as typed until the screen is reopened.
           repo.currencies = it.split(",").map { c -> c.trim().uppercase() }.filter { c -> c.isNotEmpty() }
         },
-        label = { Text("Currencies") },
-        supportingText = { Text("Quick picks offered when choosing a currency, first one is the default. Any 3-letter code can still be typed in by hand.") },
+        label = { Text(stringResource(R.string.currencies)) },
+        supportingText = { Text(stringResource(R.string.currencies_hint)) },
         singleLine = true,
         modifier = Modifier.fillMaxWidth(),
       )
       Card {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-          Text("Your ID", style = MaterialTheme.typography.titleSmall)
+          Text(stringResource(R.string.your_id), style = MaterialTheme.typography.titleSmall)
           Text("…" + Identity.me.shortId(), style = MaterialTheme.typography.bodyMedium)
           Text(
-            "This is the public half of a key generated on this phone. It signs everything you add, " +
-              "which is how the app tells whose expenses are whose. It cannot be backed up or moved: " +
-              "reinstalling or losing the phone means a new identity.",
+            stringResource(R.string.your_id_hint),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.outline,
           )

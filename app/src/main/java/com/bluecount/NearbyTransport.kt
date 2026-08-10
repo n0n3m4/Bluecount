@@ -193,7 +193,7 @@ class SyncEngine(private val context: Context, private val repo: Repo) {
   private var holds = 0
 
   /** Short text for the UI: what the radio is doing right now. */
-  val status = MutableStateFlow("Not syncing")
+  val status = MutableStateFlow(context.getString(R.string.sync_off))
 
   /**
    * ponytail: started unconditionally, so a phone that has joined no events still advertises,
@@ -208,12 +208,12 @@ class SyncEngine(private val context: Context, private val repo: Repo) {
     holds++
     if (transport != null) return
     if (!context.hasNearbyPermissions()) {
-      status.value = "Nearby permissions not granted"
+      status.value = context.getString(R.string.sync_no_permission)
       return
     }
     val t = NearbyTransport(context, repo.me.shortId())
     transport = t
-    status.value = "Looking for people nearby…"
+    status.value = context.getString(R.string.sync_looking)
     t.start { peer ->
       lateinit var session: Session
       session =
@@ -227,11 +227,12 @@ class SyncEngine(private val context: Context, private val repo: Repo) {
           onHello = { theirs ->
             if (theirs.any { it in repo.clocks().keys }) {
               sharing += peer.name
-              status.value = "Syncing with ${peer.name}"
+              status.value = context.getString(R.string.sync_with, peer.name)
             }
           },
           onMerged = { merged ->
-            if (merged > 0) status.value = "Received $merged new entries"
+            if (merged > 0)
+              status.value = context.resources.getQuantityString(R.plurals.n_received, merged, merged)
             // Relaying comes free: pushing back to whoever sent these is a no-op, because a session
             // never resends what it already handled.
             pushAll()
@@ -239,7 +240,7 @@ class SyncEngine(private val context: Context, private val repo: Repo) {
           onClosed = {
             sessions.remove(session)
             sharing.remove(peer.name)
-            if (sharing.isEmpty()) status.value = "Looking for people nearby…"
+            if (sharing.isEmpty()) status.value = context.getString(R.string.sync_looking)
           },
         )
       sessions += session
@@ -267,7 +268,7 @@ class SyncEngine(private val context: Context, private val repo: Repo) {
     sessions.clear()
     sharing.clear()
     scope.coroutineContext.cancelChildren()
-    status.value = "Not syncing"
+    status.value = context.getString(R.string.sync_off)
   }
 
   /** After a local write: tell everyone we are already talking to, and dial anyone we are not. */

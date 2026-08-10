@@ -1,0 +1,140 @@
+<resources>
+    <!-- A brand, not a word: identical in every locale. -->
+    <string name="app_name">Bluecount</string>
+
+    <!-- Ui.kt -->
+    <string name="kind_expense">Расход</string>
+    <string name="kind_payback">Возврат</string>
+    <string name="kind_exchange">Обмен</string>
+    <string name="currency_short">Вал.</string>
+    <string name="cd_pick_currency">Выбрать валюту</string>
+    <string name="cd_back">Назад</string>
+
+    <!-- EventsScreen.kt -->
+    <string name="cd_scan">Отсканировать QR-код друга</string>
+    <string name="cd_new_event">Новое событие</string>
+    <string name="empty_events">Пока нет ни одного события.\n\nСоздайте своё или отсканируйте QR-код друга, чтобы присоединиться к его событию.</string>
+    <plurals name="n_people">
+        <item quantity="one">%d человек</item>
+        <item quantity="few">%d человека</item>
+        <item quantity="many">%d человек</item>
+        <item quantity="other">%d человека</item>
+    </plurals>
+    <plurals name="n_expenses">
+        <item quantity="one">%d расход</item>
+        <item quantity="few">%d расхода</item>
+        <item quantity="many">%d расходов</item>
+        <item quantity="other">%d расхода</item>
+    </plurals>
+    <string name="balance_settled">всё сведено</string>
+    <string name="balance_owed">вам должны</string>
+    <string name="balance_owing">вы должны</string>
+    <string name="balance_mixed">вам должны / вы должны</string>
+    <string name="welcome_title">Добро пожаловать в Bluecount</string>
+    <string name="welcome_body">Как вас называть? Это имя увидят остальные рядом со всем, что вы добавите.</string>
+    <string name="your_name">Ваше имя</string>
+    <!-- Names the screen the person icon opens, so it has to match settings_title. -->
+    <string name="welcome_hint">Хранится на этом телефоне. Изменить можно в любой момент в разделе «Профиль».</string>
+    <string name="continue_">Продолжить</string>
+    <string name="new_event">Новое событие</string>
+    <string name="event_name">Название</string>
+    <string name="currency_hint">Валюта по умолчанию для новых расходов. Любой расход можно записать в другой валюте.</string>
+    <string name="your_name_in_event">Ваше имя в этом событии</string>
+    <string name="create">Создать</string>
+    <string name="cancel">Отмена</string>
+    <string name="settings_title">Профиль</string>
+    <string name="default_name">Имя по умолчанию</string>
+    <string name="default_name_hint">Используется, когда вы создаёте событие или присоединяетесь к нему. Изменение здесь не переименует вас в событиях, к которым вы уже присоединились.</string>
+    <string name="currencies">Валюты</string>
+    <string name="currencies_hint">Быстрый выбор при указании валюты, первая — по умолчанию. Любой трёхбуквенный код можно ввести вручную.</string>
+    <string name="your_id">Ваш идентификатор</string>
+    <string name="your_id_hint">Это открытая половина ключа, созданного на этом телефоне. Ею подписывается всё, что вы добавляете, — так приложение понимает, чьи это расходы. Ключ нельзя ни скопировать, ни перенести: переустановка или потеря телефона означает новую личность.</string>
+
+    <!-- EventScreen.kt -->
+    <string name="event">Событие</string>
+    <string name="cd_more">Ещё</string>
+    <string name="sync_now">Синхронизировать сейчас</string>
+    <string name="wake_on">Будить телефоны рядом: вкл.</string>
+    <string name="wake_off">Будить телефоны рядом: выкл.</string>
+    <string name="export_csv">Экспорт в CSV</string>
+    <string name="leave_event">Покинуть событие</string>
+    <string name="cd_add_expense">Добавить расход</string>
+    <string name="tab_expenses">Расходы</string>
+    <string name="tab_balances">Балансы</string>
+    <string name="leave_title">Покинуть событие?</string>
+    <string name="leave_body">Событие и его история удалятся только с этого телефона. У остальных копия сохранится, а повторное сканирование QR-кода вернёт всё обратно.</string>
+    <string name="leave">Покинуть</string>
+    <string name="empty_expenses">Пока нет расходов.</string>
+    <string name="empty_balances">Пока нечего сводить.</string>
+    <!-- Whole sentences, never fragments: an inflected language cannot glue these from parts. -->
+    <string name="row_payback">%1$s вернул(а) долг</string>
+    <string name="row_payback_to">%1$s вернул(а) долг: %2$s</string>
+    <string name="row_conversion">%1$s → %2$s · %3$s</string>
+    <string name="row_expense">заплатил(а) %1$s</string>
+    <string name="row_author">автор: %1$s</string>
+    <string name="name_you">%1$s (вы)</string>
+    <string name="settle_up">Как рассчитаться</string>
+    <string name="all_square">В %1$s все в расчёте.</string>
+    <string name="record">Записать</string>
+    <string name="record_payback_title">Записать возврат</string>
+    <string name="record_payback_body">%1$s передаёт %3$s наличными %2$s.</string>
+
+    <!-- ExpenseScreen.kt -->
+    <string name="title_new_expense">Новый расход</string>
+    <string name="title_new_payback">Новый возврат</string>
+    <string name="title_new_exchange">Новый обмен</string>
+    <string name="title_edit_expense">Изменить расход</string>
+    <string name="title_edit_payback">Изменить возврат</string>
+    <string name="title_edit_exchange">Изменить обмен</string>
+    <string name="save">Сохранить</string>
+    <string name="what_for">За что</string>
+    <string name="amount">Сумма</string>
+    <string name="gives">Отдаёт</string>
+    <string name="receives">Получает</string>
+    <string name="rate_label">Курс: 1 %1$s = ? %2$s</string>
+    <string name="same_currency_error">Для обмена нужны две разные валюты.</string>
+    <string name="from">От</string>
+    <string name="paid_by">Заплатил(а)</string>
+    <string name="to">Кому</string>
+    <string name="conversion_hint">В сумме ноль: долг в %1$s смещается в одну сторону, долг в %2$s — в другую. Из рук в руки ничего не переходит.</string>
+    <string name="payback_hint">Уменьшает долг %1$s, только в %2$s.</string>
+    <string name="exact_mismatch">Сумма частей — %1$s, а не %2$s.</string>
+    <string name="delete_expense">Удалить расход</string>
+    <string name="delete_payback">Удалить возврат</string>
+    <string name="delete_exchange">Удалить обмен</string>
+    <string name="ok">ОК</string>
+    <string name="split">Как делим</string>
+    <string name="split_equally">Поровну</string>
+    <string name="split_shares">Долями</string>
+    <string name="split_amounts">Суммами</string>
+
+    <!-- Qr.kt -->
+    <string name="invite">Пригласить</string>
+    <string name="cd_event_qr">QR-код события</string>
+    <string name="invite_hint">Дайте остальным отсканировать этот код. Никуда ничего не загружается — чтобы пришли сами расходы, им всё равно нужно оказаться рядом с кем-то из вас.</string>
+    <string name="scan_invite">Сканировать приглашение</string>
+    <string name="camera_needed">Чтобы отсканировать приглашение, нужен доступ к камере.</string>
+    <string name="join_title">Присоединиться к «%1$s»?</string>
+    <string name="join">Присоединиться</string>
+
+    <!-- NearbyTransport.kt -->
+    <string name="sync_off">Синхронизация не идёт</string>
+    <string name="sync_no_permission">Нет разрешений на связь с устройствами рядом</string>
+    <string name="sync_looking">Ищем людей поблизости…</string>
+    <string name="sync_with">Синхронизация с %1$s</string>
+    <plurals name="n_received">
+        <item quantity="one">Получена %d новая запись</item>
+        <item quantity="few">Получено %d новые записи</item>
+        <item quantity="many">Получено %d новых записей</item>
+        <item quantity="other">Получено %d новых записей</item>
+    </plurals>
+
+    <!-- Wake.kt -->
+    <string name="channel_sync">Синхронизация</string>
+    <string name="note_updates_title">Рядом есть обновления Bluecount</string>
+    <string name="note_updates_text">Нажмите, чтобы синхронизироваться с телефонами рядом.</string>
+    <string name="note_syncing">Синхронизация с телефонами рядом</string>
+
+    <!-- MainActivity.kt -->
+    <string name="no_play_services">Нет Google Play Services — обмен с телефонами рядом недоступен</string>
+</resources>

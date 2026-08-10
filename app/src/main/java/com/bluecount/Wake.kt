@@ -200,8 +200,8 @@ class WakeReceiver : BroadcastReceiver() {
         context,
         NotificationCompat.Builder(context, CHANNEL)
           .setSmallIcon(R.drawable.ic_sync)
-          .setContentTitle("Bluecount updates nearby")
-          .setContentText("Tap to sync with the phones around you.")
+          .setContentTitle(context.getString(R.string.note_updates_title))
+          .setContentText(context.getString(R.string.note_updates_text))
           .setContentIntent(
             PendingIntent.getActivity(
               context,
@@ -220,7 +220,7 @@ class WakeReceiver : BroadcastReceiver() {
 private fun channel(context: Context) {
   context
     .getSystemService<NotificationManager>()
-    ?.createNotificationChannel(NotificationChannel(CHANNEL, "Syncing", NotificationManager.IMPORTANCE_LOW))
+    ?.createNotificationChannel(NotificationChannel(CHANNEL, context.getString(R.string.channel_sync), NotificationManager.IMPORTANCE_LOW))
 }
 
 private fun notify(context: Context, note: Notification) {
@@ -244,7 +244,7 @@ class SyncService : Service() {
     val note =
       NotificationCompat.Builder(this, CHANNEL)
         .setSmallIcon(R.drawable.ic_sync)
-        .setContentTitle("Syncing with nearby phones")
+        .setContentTitle(getString(R.string.note_syncing))
         .setOngoing(true)
         .build()
     // Must be the first thing we do: the system kills us if it does not happen within 5s.

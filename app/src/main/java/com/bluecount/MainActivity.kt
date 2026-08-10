@@ -72,7 +72,7 @@ class MainActivity : ComponentActivity() {
     if (held) return
     if (!hasNearbyPermissions()) return
     if (GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(this) != ConnectionResult.SUCCESS) {
-      Toast.makeText(this, "Google Play Services missing — sharing with nearby phones is unavailable", Toast.LENGTH_LONG).show()
+      Toast.makeText(this, getString(R.string.no_play_services), Toast.LENGTH_LONG).show()
       return
     }
     held = true

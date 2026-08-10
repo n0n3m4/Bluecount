@@ -1,3 +1,134 @@
 <resources>
+    <!-- A brand, not a word: identical in every locale. -->
     <string name="app_name">Bluecount</string>
+
+    <!-- Ui.kt -->
+    <string name="kind_expense">Expense</string>
+    <string name="kind_payback">Payback</string>
+    <string name="kind_exchange">Exchange</string>
+    <string name="currency_short">Cur</string>
+    <string name="cd_pick_currency">Pick a currency</string>
+    <string name="cd_back">Back</string>
+
+    <!-- EventsScreen.kt -->
+    <string name="cd_scan">Scan a friend\'s QR code</string>
+    <string name="cd_new_event">New event</string>
+    <string name="empty_events">No events yet.\n\nCreate one, or scan a friend\'s QR code to join theirs.</string>
+    <plurals name="n_people">
+        <item quantity="one">%d person</item>
+        <item quantity="other">%d people</item>
+    </plurals>
+    <plurals name="n_expenses">
+        <item quantity="one">%d expense</item>
+        <item quantity="other">%d expenses</item>
+    </plurals>
+    <string name="balance_settled">settled</string>
+    <string name="balance_owed">you are owed</string>
+    <string name="balance_owing">you owe</string>
+    <string name="balance_mixed">owed / owing</string>
+    <string name="welcome_title">Welcome to Bluecount</string>
+    <string name="welcome_body">What should we call you? This is the name the others see next to whatever you add.</string>
+    <string name="your_name">Your name</string>
+    <!-- Names the screen the person icon opens, so it has to match settings_title. -->
+    <string name="welcome_hint">Kept on this phone. You can change it any time under “You”.</string>
+    <string name="continue_">Continue</string>
+    <string name="new_event">New event</string>
+    <string name="event_name">Name</string>
+    <string name="currency_hint">The default for new expenses. Any expense can use another currency.</string>
+    <string name="your_name_in_event">Your name in this event</string>
+    <string name="create">Create</string>
+    <string name="cancel">Cancel</string>
+    <string name="settings_title">You</string>
+    <string name="default_name">Default name</string>
+    <string name="default_name_hint">Used when you create or join an event. Changing it here does not rename you in events you already joined.</string>
+    <string name="currencies">Currencies</string>
+    <string name="currencies_hint">Quick picks offered when choosing a currency, first one is the default. Any 3-letter code can still be typed in by hand.</string>
+    <string name="your_id">Your ID</string>
+    <string name="your_id_hint">This is the public half of a key generated on this phone. It signs everything you add, which is how the app tells whose expenses are whose. It cannot be backed up or moved: reinstalling or losing the phone means a new identity.</string>
+
+    <!-- EventScreen.kt -->
+    <string name="event">Event</string>
+    <string name="cd_more">More</string>
+    <string name="sync_now">Sync now</string>
+    <string name="wake_on">Wake nearby phones: on</string>
+    <string name="wake_off">Wake nearby phones: off</string>
+    <string name="export_csv">Export CSV</string>
+    <string name="leave_event">Leave event</string>
+    <string name="cd_add_expense">Add expense</string>
+    <string name="tab_expenses">Expenses</string>
+    <string name="tab_balances">Balances</string>
+    <string name="leave_title">Leave event?</string>
+    <string name="leave_body">This removes the event and its history from this phone only. Everyone else keeps their copy, and scanning the QR again brings it all back.</string>
+    <string name="leave">Leave</string>
+    <string name="empty_expenses">No expenses yet.</string>
+    <string name="empty_balances">Nothing to settle yet.</string>
+    <!-- Whole sentences, never fragments: an inflected language cannot glue these from parts. -->
+    <string name="row_payback">%1$s paid back</string>
+    <string name="row_payback_to">%1$s paid back %2$s</string>
+    <string name="row_conversion">%1$s → %2$s · %3$s</string>
+    <string name="row_expense">paid by %1$s</string>
+    <string name="row_author">by %1$s</string>
+    <string name="name_you">%1$s (you)</string>
+    <string name="settle_up">Settle up</string>
+    <string name="all_square">Everyone is square in %1$s.</string>
+    <string name="record">Record</string>
+    <string name="record_payback_title">Record payback</string>
+    <string name="record_payback_body">%1$s gave %2$s to %3$s in cash.</string>
+
+    <!-- ExpenseScreen.kt -->
+    <string name="title_new_expense">New expense</string>
+    <string name="title_new_payback">New payback</string>
+    <string name="title_new_exchange">New exchange</string>
+    <string name="title_edit_expense">Edit expense</string>
+    <string name="title_edit_payback">Edit payback</string>
+    <string name="title_edit_exchange">Edit exchange</string>
+    <string name="save">Save</string>
+    <string name="what_for">What for</string>
+    <string name="amount">Amount</string>
+    <string name="gives">Gives</string>
+    <string name="receives">Receives</string>
+    <string name="rate_label">Rate: 1 %1$s = ? %2$s</string>
+    <string name="same_currency_error">An exchange needs two different currencies.</string>
+    <string name="from">From</string>
+    <string name="paid_by">Paid by</string>
+    <string name="to">To</string>
+    <string name="conversion_hint">Net zero: the %1$s debt moves one way and the %2$s debt the other. Nothing changes hands overall.</string>
+    <string name="payback_hint">Reduces what %1$s owes, in %2$s only.</string>
+    <string name="exact_mismatch">The amounts add up to %1$s, not %2$s.</string>
+    <string name="delete_expense">Delete expense</string>
+    <string name="delete_payback">Delete payback</string>
+    <string name="delete_exchange">Delete exchange</string>
+    <string name="ok">OK</string>
+    <string name="split">Split</string>
+    <string name="split_equally">Equally</string>
+    <string name="split_shares">Shares</string>
+    <string name="split_amounts">Amounts</string>
+
+    <!-- Qr.kt -->
+    <string name="invite">Invite</string>
+    <string name="cd_event_qr">Event QR code</string>
+    <string name="invite_hint">Have the others scan this. Nothing is uploaded anywhere — they still need to be near one of you for the expenses themselves to arrive.</string>
+    <string name="scan_invite">Scan invite</string>
+    <string name="camera_needed">Camera access is needed to scan an invite.</string>
+    <string name="join_title">Join \"%1$s\"?</string>
+    <string name="join">Join</string>
+
+    <!-- NearbyTransport.kt -->
+    <string name="sync_off">Not syncing</string>
+    <string name="sync_no_permission">Nearby permissions not granted</string>
+    <string name="sync_looking">Looking for people nearby…</string>
+    <string name="sync_with">Syncing with %1$s</string>
+    <plurals name="n_received">
+        <item quantity="one">Received %d new entry</item>
+        <item quantity="other">Received %d new entries</item>
+    </plurals>
+
+    <!-- Wake.kt -->
+    <string name="channel_sync">Syncing</string>
+    <string name="note_updates_title">Bluecount updates nearby</string>
+    <string name="note_updates_text">Tap to sync with the phones around you.</string>
+    <string name="note_syncing">Syncing with nearby phones</string>
+
+    <!-- MainActivity.kt -->
+    <string name="no_play_services">Google Play Services missing — sharing with nearby phones is unavailable</string>
 </resources>

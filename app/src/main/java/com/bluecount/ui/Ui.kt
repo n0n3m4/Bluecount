@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.bluecount.App
 import com.bluecount.Expense
@@ -103,12 +104,20 @@ fun Expense.whenText(): String {
   )
 }
 
+/**
+ * Composable because it resolves against the reader's locale. Deliberately *not* callable from the
+ * write path: a kind label must never end up inside a signed op, or a Russian phone would ship a
+ * Russian title to an English one. `ExpenseRow` falls back to this at render time instead.
+ */
+@Composable
 fun Kind.label(): String =
-  when (this) {
-    Kind.EXPENSE -> "Expense"
-    Kind.REIMBURSEMENT -> "Payback"
-    Kind.CONVERSION -> "Exchange"
-  }
+  stringResource(
+    when (this) {
+      Kind.EXPENSE -> R.string.kind_expense
+      Kind.REIMBURSEMENT -> R.string.kind_payback
+      Kind.CONVERSION -> R.string.kind_exchange
+    }
+  )
 
 /**
  * A currency code field: free text so any 3-letter code works, with the user's shortlist one tap
@@ -121,10 +130,12 @@ fun CurrencyField(value: String, onChange: (String) -> Unit, modifier: Modifier 
     OutlinedTextField(
       value,
       { onChange(it.filter { c -> c.isLetter() }.take(3).uppercase()) },
-      label = { Text("Cur") },
+      label = { Text(stringResource(R.string.currency_short)) },
       singleLine = true,
       trailingIcon = {
-        IconButton(onClick = { open = true }) { Icon(painterResource(R.drawable.ic_arrow_drop_down), "Pick a currency") }
+        IconButton(onClick = { open = true }) {
+          Icon(painterResource(R.drawable.ic_arrow_drop_down), stringResource(R.string.cd_pick_currency))
+        }
       },
       modifier = Modifier.fillMaxWidth(),
     )
@@ -158,7 +169,7 @@ val sync: SyncEngine
  */
 @Composable
 fun BackButton(onBack: () -> Unit) {
-  IconButton(onClick = onBack) { Icon(painterResource(R.drawable.ic_arrow_back), "Back") }
+  IconButton(onClick = onBack) { Icon(painterResource(R.drawable.ic_arrow_back), stringResource(R.string.cd_back)) }
 }
 
 @Composable
