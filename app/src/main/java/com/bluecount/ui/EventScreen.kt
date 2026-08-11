@@ -1,7 +1,6 @@
 package com.bluecount.ui
 
 import android.content.Context
-import android.content.Intent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -39,7 +38,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bluecount.EventState
 import com.bluecount.R
@@ -49,7 +47,6 @@ import com.bluecount.Kind
 import com.bluecount.Put
 import com.bluecount.Transfer
 import com.bluecount.settleUp
-import java.io.File
 import java.time.LocalDate
 import kotlinx.coroutines.launch
 
@@ -171,22 +168,9 @@ fun EventScreen(
   }
 }
 
-/** Straight to a share sheet — there is no import side, so a file the user filed away is the whole feature. */
-private fun shareCsv(context: Context, name: String, csv: String) {
-  val file = File(File(context.cacheDir, "export").apply { mkdirs() }, safeName(name) + ".csv")
-  file.writeText(csv)
-  val uri = FileProvider.getUriForFile(context, context.packageName + ".files", file)
-  context.startActivity(
-    Intent.createChooser(
-      Intent(Intent.ACTION_SEND).apply {
-        type = "text/csv"
-        putExtra(Intent.EXTRA_STREAM, uri)
-        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-      },
-      context.getString(R.string.export_csv),
-    )
-  )
-}
+/** The log as a file, for keeping: nothing reads a CSV back in, so this is one-way on purpose. */
+private fun shareCsv(context: Context, name: String, csv: String) =
+  shareFile(context, safeName(name) + ".csv", "text/csv", csv, context.getString(R.string.export_csv))
 
 private fun safeName(name: String) = name.replace(Regex("""[^\p{L}\p{N}_-]"""), "_").trim('_').ifBlank { "event" }
 

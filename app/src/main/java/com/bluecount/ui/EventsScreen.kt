@@ -1,10 +1,14 @@
 package com.bluecount.ui
 
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -30,6 +34,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -39,6 +44,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bluecount.EventRow
 import com.bluecount.Identity
 import com.bluecount.R
+import com.bluecount.parseIdentity
 import com.bluecount.shortId
 import kotlinx.coroutines.launch
 
@@ -248,17 +254,107 @@ fun SettingsScreen(onBack: () -> Unit) {
         singleLine = true,
         modifier = Modifier.fillMaxWidth(),
       )
-      Card {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-          Text(stringResource(R.string.your_id), style = MaterialTheme.typography.titleSmall)
-          Text("…" + Identity.me.shortId(), style = MaterialTheme.typography.bodyMedium)
-          Text(
-            stringResource(R.string.your_id_hint),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.outline,
-          )
+      KeyCard()
+    }
+  }
+}
+
+/** Small print under a control: why it is off, or what it will do. */
+@Composable
+private fun Note(text: Int) =
+  Text(stringResource(text), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+
+/**
+ * The identity, and the two things that can be done with it. Words rather than icons: exporting and
+ * importing a thing the user never sees is exactly the button whose job needs explaining.
+ *
+ * Import is offered only before the first event is joined. That is the case it exists for — fresh
+ * install, restore the identity, then rejoin by QR — and it keeps the swap to one field, with no
+ * seq or authorship in any log able to be affected by it.
+ */
+@Composable
+private fun KeyCard() {
+  val context = LocalContext.current
+  val events by repo.events.collectAsStateWithLifecycle(emptyList())
+  var id by remember { mutableStateOf(repo.me) }
+  var confirming by remember { mutableStateOf(false) }
+  // An identity from the Keystore era physically cannot leave the phone; only a file-backed one can.
+  val exportable = remember(id) { Identity.keyFile(context).exists() }
+
+  val pick =
+    rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+      val text =
+        uri?.let {
+          try {
+            context.contentResolver.openInputStream(it)?.bufferedReader()?.use { r -> r.readText() }
+          } catch (_: Exception) {
+            null
+          }
         }
+      // parseIdentity is the trust boundary: it proves the two halves belong together before this
+      // phone signs anything with them.
+      val signer = text?.let { parseIdentity(it) }
+      if (text == null || signer == null) {
+        // Null uri is the user backing out of the picker, which is not an error.
+        if (uri != null) Toast.makeText(context, R.string.import_key_bad, Toast.LENGTH_LONG).show()
+      } else {
+        Identity.keyFile(context).writeText(text)
+        repo.signer = signer
+        id = signer.id
+        // The advertised endpoint name is derived from the identity, so the radio has to restart.
+        sync.rename()
       }
     }
+
+  Card {
+    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+      Text(stringResource(R.string.your_id), style = MaterialTheme.typography.titleSmall)
+      Text("…" + id.shortId(), style = MaterialTheme.typography.bodyMedium)
+      Note(R.string.your_id_hint)
+      // -12dp cancels a TextButton's own content padding, so the labels sit on the same left edge
+      // as the text above them rather than a hair inside it.
+      Row(Modifier.offset(x = (-12).dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        TextButton(
+          enabled = exportable,
+          onClick = {
+            shareFile(
+              context,
+              "bluecount-key.txt",
+              "text/plain",
+              Identity.keyFile(context).readText(),
+              context.getString(R.string.export_key),
+            )
+          },
+        ) {
+          Text(stringResource(R.string.export_key))
+        }
+        TextButton(enabled = events.isEmpty(), onClick = { confirming = true }) {
+          Text(stringResource(R.string.import_key))
+        }
+      }
+      // Both can apply at once — a Keystore identity on a phone that has already joined something —
+      // and a disabled button with no reason next to it is the thing being avoided here.
+      if (!exportable) Note(R.string.key_hardware_only)
+      if (events.isNotEmpty()) Note(R.string.import_key_blocked)
+    }
+  }
+
+  if (confirming) {
+    AlertDialog(
+      onDismissRequest = { confirming = false },
+      title = { Text(stringResource(R.string.import_key_title)) },
+      text = { Text(stringResource(R.string.import_key_body)) },
+      confirmButton = {
+        TextButton(
+          onClick = {
+            confirming = false
+            pick.launch("*/*")
+          }
+        ) {
+          Text(stringResource(R.string.import_key))
+        }
+      },
+      dismissButton = { TextButton(onClick = { confirming = false }) { Text(stringResource(R.string.cancel)) } },
+    )
   }
 }

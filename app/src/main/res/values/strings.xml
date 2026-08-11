@@ -44,7 +44,14 @@
     <string name="currencies">Currencies</string>
     <string name="currencies_hint">Quick picks offered when choosing a currency, first one is the default. Any 3-letter code can still be typed in by hand.</string>
     <string name="your_id">Your ID</string>
-    <string name="your_id_hint">This is the public half of a key generated on this phone. It signs everything you add, which is how the app tells whose expenses are whose. It cannot be backed up or moved: reinstalling or losing the phone means a new identity.</string>
+    <string name="your_id_hint">This is the public half of a key kept as a file on this phone. It signs everything you add, which is how the app tells whose expenses are whose. Export it to carry the same identity to another phone; it is also included in Android\'s own backup.</string>
+    <string name="export_key">Export key</string>
+    <string name="import_key">Import key</string>
+    <string name="key_hardware_only">This phone\'s key was made inside secure hardware and cannot be copied out of it. Importing a key replaces it with one that can.</string>
+    <string name="import_key_title">Import a key?</string>
+    <string name="import_key_body">This replaces the identity this phone signs with. The current one is discarded, and unless you have exported it, it is gone for good.</string>
+    <string name="import_key_blocked">A key can only be imported before you join your first event.</string>
+    <string name="import_key_bad">That file is not a Bluecount key.</string>
 
     <!-- EventScreen.kt -->
     <string name="event">Event</string>

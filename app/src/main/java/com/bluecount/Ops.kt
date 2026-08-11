@@ -5,8 +5,11 @@ import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.security.KeyFactory
+import java.security.KeyPairGenerator
 import java.security.PrivateKey
 import java.security.Signature
+import java.security.spec.ECGenParameterSpec
+import java.security.spec.PKCS8EncodedKeySpec
 import java.security.spec.X509EncodedKeySpec
 import java.util.Base64
 import kotlinx.serialization.SerialName
@@ -52,6 +55,42 @@ class Signer(private val key: PrivateKey, val id: UserId) {
 }
 
 private val ecKeyFactory = KeyFactory.getInstance("EC")
+
+/**
+ * A stored identity: two base64url lines, the X.509 public half then the PKCS#8 private one. Both
+ * halves, because the JDK will not derive the public point from an EC private key and doing that
+ * arithmetic by hand is a lot of code to save one line of file.
+ *
+ * This exact text is what sits in `filesDir` and what leaves the phone as an export.
+ *
+ * ponytail: unwrapped. If a plaintext private key crossing a share sheet ever matters, wrap it in
+ * PBKDF2 + AES-GCM and ask for a passphrase on both ends.
+ */
+fun newIdentity(): String {
+  val kp =
+    KeyPairGenerator.getInstance("EC").apply { initialize(ECGenParameterSpec("secp256r1")) }.generateKeyPair()
+  return kp.public.encoded.b64() + "\n" + kp.private.encoded.b64()
+}
+
+/**
+ * Reads one back. Null for anything malformed — this is a trust boundary, and the file may have
+ * come from a share sheet, a chat app or a text editor.
+ *
+ * The probe signature is the point: a file pairing one key's public half with another's private
+ * half parses fine and then signs ops that no peer on earth can verify. Ops are immutable, so that
+ * is not a mistake anyone can take back.
+ */
+fun parseIdentity(text: String): Signer? =
+  try {
+    val lines = text.trim().lines().map { it.trim() }.filter { it.isNotEmpty() }
+    require(lines.size == 2)
+    val (id, priv) = lines
+    val signer = Signer(ecKeyFactory.generatePrivate(PKCS8EncodedKeySpec(priv.unb64())), id)
+    val probe = id.encodeToByteArray()
+    signer.takeIf { verify(id, probe, it.sign(probe)) }
+  } catch (_: Exception) {
+    null
+  }
 
 /** False for anything malformed, not just for a wrong signature — this is a trust boundary. */
 fun verify(author: UserId, data: ByteArray, sig: ByteArray): Boolean =

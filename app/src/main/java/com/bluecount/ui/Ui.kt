@@ -1,5 +1,7 @@
 package com.bluecount.ui
 
+import android.content.Context
+import android.content.Intent
 import android.text.format.DateUtils
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,12 +26,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import com.bluecount.App
 import com.bluecount.Expense
 import com.bluecount.Kind
 import com.bluecount.R
 import com.bluecount.Repo
 import com.bluecount.SyncEngine
+import java.io.File
 import java.time.LocalDate
 import java.time.ZoneId
 import kotlin.math.abs
@@ -151,6 +155,29 @@ fun CurrencyField(value: String, onChange: (String) -> Unit, modifier: Modifier 
       }
     }
   }
+}
+
+/**
+ * Straight to a share sheet: a file the user filed away somewhere is the whole feature.
+ *
+ * ponytail: the copy stays in `cacheDir/export` until the OS reclaims it — a chooser gives no
+ * completion callback to delete it on. Matters more for a key than for a CSV; the fix is a
+ * `CreateDocument` picker writing the bytes to the user's chosen place directly.
+ */
+fun shareFile(context: Context, name: String, mime: String, content: String, chooserTitle: String) {
+  val file = File(File(context.cacheDir, "export").apply { mkdirs() }, name)
+  file.writeText(content)
+  val uri = FileProvider.getUriForFile(context, context.packageName + ".files", file)
+  context.startActivity(
+    Intent.createChooser(
+      Intent(Intent.ACTION_SEND).apply {
+        type = mime
+        putExtra(Intent.EXTRA_STREAM, uri)
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+      },
+      chooserTitle,
+    )
+  )
 }
 
 val repo: Repo

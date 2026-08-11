@@ -206,6 +206,22 @@ class SyncEngine(private val context: Context, private val repo: Repo) {
   @Synchronized
   fun start() {
     holds++
+    startTransport()
+  }
+
+  /**
+   * Importing a key changes the identity the endpoint name below is derived from, so the radio has
+   * to come back up under the new one — a peer that saw the old name would otherwise be told about
+   * ops signed by someone it has no name for.
+   */
+  @Synchronized
+  fun rename() {
+    if (transport == null) return
+    teardown()
+    startTransport()
+  }
+
+  private fun startTransport() {
     if (transport != null) return
     if (!context.hasNearbyPermissions()) {
       status.value = context.getString(R.string.sync_no_permission)
@@ -261,6 +277,10 @@ class SyncEngine(private val context: Context, private val repo: Repo) {
     // holder's start() a no-op, which would leave the radio silently off.
     holds = (holds - 1).coerceAtLeast(0)
     if (holds > 0) return
+    teardown()
+  }
+
+  private fun teardown() {
     ticker?.cancel()
     ticker = null
     transport?.stop()

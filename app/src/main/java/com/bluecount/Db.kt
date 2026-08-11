@@ -93,7 +93,13 @@ abstract class Db : RoomDatabase() {
  * The only thing the UI talks to. Appending an op and merging a peer's ops are the two writes;
  * everything else is a fold.
  */
-class Repo(context: Context, val signer: Signer) : OpStore {
+class Repo(context: Context, signer: Signer) : OpStore {
+  /**
+   * A `var` for one reason: importing a key swaps the identity in place. Only ever written from
+   * `SettingsScreen`, and only while no event has been joined, so no seq or authorship in the log
+   * can be affected by the swap.
+   */
+  var signer: Signer = signer
   private val db =
     Room.databaseBuilder(context.applicationContext, Db::class.java, "bluecount.db").build()
   private val dao = db.dao()

@@ -3,7 +3,7 @@ package com.bluecount
 import android.app.Application
 
 class App : Application() {
-  val repo: Repo by lazy { Repo(this, Identity.signer) }
+  val repo: Repo by lazy { Repo(this, Identity.signer(this)) }
   val sync: SyncEngine by lazy { SyncEngine(this, repo) }
 
   override fun onCreate() {
