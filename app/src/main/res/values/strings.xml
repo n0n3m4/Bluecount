@@ -105,6 +105,8 @@
     <string name="delete_expense">Delete expense</string>
     <string name="delete_payback">Delete payback</string>
     <string name="delete_exchange">Delete exchange</string>
+    <string name="delete_body">The entry disappears for everyone once the phones sync. Nothing is erased — the deletion goes into the history, signed by you.</string>
+    <string name="delete">Delete</string>
     <string name="ok">OK</string>
     <string name="split">Split</string>
     <string name="split_equally">Equally</string>

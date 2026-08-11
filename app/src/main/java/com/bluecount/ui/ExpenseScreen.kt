@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -83,6 +84,7 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
   var pickingTime by remember { mutableStateOf(false) }
   var payerMenu by remember { mutableStateOf(false) }
   var toMenu by remember { mutableStateOf(false) }
+  var deleting by remember { mutableStateOf(false) }
 
   val s = state
   // Seed the form once the log has been read; everything after that is the user's edit.
@@ -365,8 +367,26 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
 
       if (expenseId != null) {
         HorizontalDivider()
+        TextButton(onClick = { deleting = true }) {
+          Text(
+            stringResource(deleteLabel(kind)),
+            color = MaterialTheme.colorScheme.error,
+            fontWeight = FontWeight.Bold,
+          )
+        }
+      }
+    }
+  }
+
+  if (deleting && expenseId != null) {
+    AlertDialog(
+      onDismissRequest = { deleting = false },
+      title = { Text(stringResource(deleteLabel(kind))) },
+      text = { Text(stringResource(R.string.delete_body)) },
+      confirmButton = {
         TextButton(
           onClick = {
+            deleting = false
             scope.launch {
               // A delete is another op, not an erasure — the history stays intact (spec §9).
               repo.append(eventId) { Put(id = expenseId, deleted = true) }
@@ -374,20 +394,11 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
             }
           }
         ) {
-          Text(
-            stringResource(
-              when (kind) {
-                Kind.EXPENSE -> R.string.delete_expense
-                Kind.REIMBURSEMENT -> R.string.delete_payback
-                Kind.CONVERSION -> R.string.delete_exchange
-              }
-            ),
-            color = MaterialTheme.colorScheme.error,
-            fontWeight = FontWeight.Bold,
-          )
+          Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error)
         }
-      }
-    }
+      },
+      dismissButton = { TextButton(onClick = { deleting = false }) { Text(stringResource(R.string.cancel)) } },
+    )
   }
 
   if (pickingDate) {
@@ -436,6 +447,14 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
     }
   }
 }
+
+/** Whole sentences per kind, not "Delete " + noun — the noun inflects in Russian. */
+private fun deleteLabel(kind: Kind) =
+  when (kind) {
+    Kind.EXPENSE -> R.string.delete_expense
+    Kind.REIMBURSEMENT -> R.string.delete_payback
+    Kind.CONVERSION -> R.string.delete_exchange
+  }
 
 /** Amount plus its currency. Three of these on screen at once for an exchange, so it is one thing. */
 @Composable

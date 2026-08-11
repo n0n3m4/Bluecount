@@ -109,6 +109,8 @@
     <string name="delete_expense">Удалить расход</string>
     <string name="delete_payback">Удалить возврат</string>
     <string name="delete_exchange">Удалить обмен</string>
+    <string name="delete_body">Запись исчезнет у всех, как только телефоны синхронизируются. Ничего не стирается — удаление попадает в историю и подписывается вами.</string>
+    <string name="delete">Удалить</string>
     <string name="ok">ОК</string>
     <string name="split">Как делим</string>
     <string name="split_equally">Поровну</string>
