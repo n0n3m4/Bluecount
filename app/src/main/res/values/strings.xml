@@ -92,6 +92,9 @@
     <string name="save">Save</string>
     <string name="what_for">What for</string>
     <string name="amount">Amount</string>
+    <string name="amount_net">Amount before VAT</string>
+    <string name="vat_percent">VAT / tip, %</string>
+    <string name="vat_total">With VAT: %1$s</string>
     <string name="gives">Gives</string>
     <string name="receives">Receives</string>
     <string name="rate_label">Rate: 1 %1$s = ? %2$s</string>

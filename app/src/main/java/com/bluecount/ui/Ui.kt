@@ -68,6 +68,9 @@ fun Long.micros(): String {
   return "${this / MICRO}" + if (frac.isEmpty()) "" else ".$frac"
 }
 
+/** Basis points as a percent, trailing zeros dropped: 1000 → "10", 825 → "8.25". */
+fun Long.pct(): String = money().trimEnd('0').trimEnd('.')
+
 /** The rate a conversion op implies. Display only — the ledger only ever sees the two amounts. */
 fun rateMicros(from: Long, to: Long): Long = if (from <= 0) 0L else to * MICRO / from
 

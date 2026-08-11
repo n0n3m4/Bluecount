@@ -21,6 +21,8 @@ data class Expense(
   /** [Kind.CONVERSION] only: the amount handed back the other way. Zero otherwise. */
   val toCents: Long,
   val toCurrency: String,
+  /** VAT/tip in basis points, 0 for none. [cents] and [shares] already include it. See [Put.vatBp]. */
+  val vatBp: Long,
   /** Author of the most recent op touching this expense — anyone in the event may edit. */
   val lastEditor: UserId,
 )
@@ -77,7 +79,7 @@ fun fold(ops: List<Op>, fallbackName: String = "", fallbackCurrency: String = ""
         // names the default, and an expense must not depend on which order it was folded in.
         Expense(
           p.id, p.title, p.cents, p.date, p.at, p.payer, p.mode, p.shares, p.kind,
-          p.currency.ifBlank { currency }, p.toCents, p.toCurrency, editor,
+          p.currency.ifBlank { currency }, p.toCents, p.toCurrency, p.vatBp, editor,
         )
       }
       // at is UTC millis and date an epoch day, so an op with no time sorts as its own UTC midnight.
@@ -144,6 +146,24 @@ fun split(cents: Long, mode: SplitMode, shares: Map<UserId, Long>): Map<UserId, 
   }
   return out
 }
+
+/** VAT/tip scale: basis points, so 1% is 100 and a percent typed with two decimals is exact. */
+const val BP = 10_000L
+
+/**
+ * The two directions of a VAT rate. Only [grossOf] ever produces a number the ledger stores; [netOf]
+ * exists so an expense can be *reopened* showing the subtotal that was typed, and is otherwise pure
+ * decoration — which is why the division lives here and not anywhere near a balance.
+ *
+ * Both round half-up and both are integer, so two phones showing the same expense show the same
+ * subtotal. A rate outside 0..100% is treated as none: it is a typo, and refusing it here is what
+ * keeps `net * bp` inside a Long for any amount the editor can produce.
+ */
+fun grossOf(net: Long, bp: Long): Long =
+  if (bp <= 0 || bp > BP || net <= 0) net else net + (net * bp + BP / 2) / BP
+
+fun netOf(gross: Long, bp: Long): Long =
+  if (bp <= 0 || bp > BP || gross <= 0) gross else (gross * BP + (BP + bp) / 2) / (BP + bp)
 
 /**
  * Greedy largest-debtor-to-largest-creditor, which is what Tricount's "settle up" does: at most

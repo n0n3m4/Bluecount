@@ -50,12 +50,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.bluecount.BP
 import com.bluecount.EventState
 import com.bluecount.Kind
 import com.bluecount.Put
 import com.bluecount.R
 import com.bluecount.SplitMode
 import com.bluecount.UserId
+import com.bluecount.grossOf
+import com.bluecount.netOf
+import com.bluecount.split
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -71,6 +75,7 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
   var kind by remember { mutableStateOf(Kind.EXPENSE) }
   var title by remember { mutableStateOf("") }
   var amount by remember { mutableStateOf("") }
+  var vat by remember { mutableStateOf("") }
   var currency by remember { mutableStateOf("") }
   var toAmount by remember { mutableStateOf("") }
   var toCurrency by remember { mutableStateOf("") }
@@ -94,7 +99,10 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
     if (existing != null) {
       kind = existing.kind
       title = existing.title
-      amount = existing.cents.money()
+      // The ledger holds the inclusive total; the editor works in the subtotal that was typed.
+      vat = if (existing.vatBp > 0) existing.vatBp.pct() else ""
+      val net = netOf(existing.cents, existing.vatBp)
+      amount = net.money()
       currency = existing.currency
       // An op written before expenses carried a time has only a day; editing one stamps it midnight.
       at =
@@ -102,7 +110,13 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
         else LocalDate.ofEpochDay(existing.date).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
       payer = existing.payer
       mode = existing.mode
-      existing.shares.forEach { (id, w) -> picked[id] = if (existing.mode == SplitMode.EXACT) w.money() else w.toString() }
+      // Exact parts were stored inclusive too, so they come back down the same way the total does —
+      // proportionally, through split(), so what is shown adds up to the subtotal shown above it.
+      val parts =
+        if (existing.mode == SplitMode.EXACT && existing.vatBp > 0)
+          split(net, SplitMode.SHARES, existing.shares)
+        else existing.shares
+      parts.forEach { (id, w) -> picked[id] = if (existing.mode == SplitMode.EXACT) w.money() else w.toString() }
       if (existing.kind == Kind.CONVERSION) {
         toAmount = existing.toCents.money()
         toCurrency = existing.toCurrency
@@ -125,6 +139,13 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
   val rateM = rate.toMicrosOrNull()
   val oneToOne = kind != Kind.EXPENSE
 
+  // A percent with two decimals is exactly basis points, so the amount parser is also the VAT parser.
+  // -1 marks unparseable or over 100%, which blocks the save the same way a bad share does.
+  val bp = if (vat.isBlank()) 0L else vat.toCentsOrNull()?.takeIf { it <= BP } ?: -1L
+  // What actually changed hands, and the only amount that reaches the ledger. Equal to `cents`
+  // whenever there is no VAT, so an expense without one is stored exactly as it always was.
+  val gross = if (cents == null || bp < 0) null else grossOf(cents, bp)
+
   /**
    * Rate, "gives" and "receives" are three views of two numbers, so whichever the user last touched
    * drives the other. Only the two amounts are ever saved: the rate is derived on the way out again,
@@ -143,6 +164,13 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
       }
     }
   val badWeight = weights.values.any { it < 0 }
+  // The inclusive amount each person ends up owing. split() rather than grossing up each part on its
+  // own: the parts have to add back to the stored total exactly, and this is the function that does
+  // that. Shown in the rows and saved as the shares, so the two cannot drift apart.
+  val grossParts =
+    if (!oneToOne && mode == SplitMode.EXACT && bp > 0 && gross != null && !badWeight)
+      split(gross, SplitMode.SHARES, weights)
+    else emptyMap()
   val exactMismatch =
     !oneToOne && mode == SplitMode.EXACT && !badWeight && cents != null && weights.values.sum() != cents
   // A payback or an exchange to yourself is a no-op that would still show up in the list; block it.
@@ -151,7 +179,7 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
   val badExchange =
     kind == Kind.CONVERSION && (toCents == null || toCents <= 0 || toCurrency.isBlank() || toCurrency == currency)
   val canSave =
-    s != null && cents != null && cents > 0 && payer.isNotEmpty() && currency.isNotBlank() &&
+    s != null && gross != null && gross > 0 && payer.isNotEmpty() && currency.isNotBlank() &&
       picked.isNotEmpty() && !badWeight && !exactMismatch && !badPair && !badExchange
 
   Scaffold(
@@ -180,15 +208,23 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
                   Put(
                     id = expenseId ?: newId,
                     title = title.trim(),
-                    cents = cents!!,
+                    cents = gross!!,
                     at = at,
                     // The day is written too, for a build that predates `at` and as the list's fallback.
                     date = local.toLocalDate().toEpochDay(),
                     payer = payer,
                     mode = if (oneToOne) SplitMode.EQUAL else mode,
-                    shares = if (oneToOne || mode == SplitMode.EQUAL) weights.mapValues { 1L } else weights,
+                    // Exact parts are typed VAT-free but stored inclusive, like the total: it is the
+                    // inclusive numbers that have to sum to `cents`, and grossParts already do.
+                    shares =
+                      when {
+                        oneToOne || mode == SplitMode.EQUAL -> weights.mapValues { 1L }
+                        grossParts.isNotEmpty() -> grossParts
+                        else -> weights
+                      },
                     kind = kind,
                     currency = currency,
+                    vatBp = bp,
                     toCents = if (kind == Kind.CONVERSION) toCents!! else 0,
                     toCurrency = if (kind == Kind.CONVERSION) toCurrency else "",
                   )
@@ -222,6 +258,7 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
                 picked.clear()
                 s.members.keys.forEach { picked[it] = "1" }
               } else {
+                vat = ""
                 val to = picked.keys.firstOrNull { it != payer } ?: s.members.keys.firstOrNull { it != payer }
                 picked.clear()
                 if (to != null) picked[to] = "1"
@@ -249,7 +286,15 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
       )
 
       AmountRow(
-        label = stringResource(if (kind == Kind.CONVERSION) R.string.gives else R.string.amount),
+        label =
+          stringResource(
+            when {
+              kind == Kind.CONVERSION -> R.string.gives
+              // Only once a VAT is actually set does the field mean something narrower than "amount".
+              bp > 0 -> R.string.amount_net
+              else -> R.string.amount
+            }
+          ),
         amount = amount,
         onAmount = {
           amount = it
@@ -259,6 +304,29 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
         currency = currency,
         onCurrency = { currency = it },
       )
+
+      // A payback is cash handed over and an exchange is net zero; neither has a subtotal to tax.
+      if (kind == Kind.EXPENSE) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+          OutlinedTextField(
+            vat,
+            { vat = it },
+            label = { Text(stringResource(R.string.vat_percent)) },
+            isError = bp < 0,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            singleLine = true,
+            modifier = Modifier.width(140.dp),
+          )
+          // Empty field, nothing else on screen: an expense without VAT looks exactly as it did.
+          if (bp > 0 && gross != null) {
+            Text(
+              stringResource(R.string.vat_total, gross.money(currency)),
+              style = MaterialTheme.typography.bodyMedium,
+              fontWeight = FontWeight.Bold,
+            )
+          }
+        }
+      }
 
       if (kind == Kind.CONVERSION) {
         AmountRow(
@@ -354,7 +422,7 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
           color = MaterialTheme.colorScheme.outline,
         )
       } else {
-        SplitSection(s, mode, { mode = it }, picked, weights)
+        SplitSection(s, mode, { mode = it }, picked, weights, grossParts, currency)
       }
 
       if (exactMismatch) {
@@ -487,6 +555,9 @@ private fun SplitSection(
   onMode: (SplitMode) -> Unit,
   picked: MutableMap<UserId, String>,
   weights: Map<UserId, Long>,
+  /** What each person owes once VAT is on top. Empty when there is none, and then rows look as before. */
+  grossParts: Map<UserId, Long>,
+  currency: String,
 ) {
   HorizontalDivider()
   Text(stringResource(R.string.split), style = MaterialTheme.typography.titleMedium)
@@ -517,6 +588,14 @@ private fun SplitSection(
         onCheckedChange = { on -> if (on) picked[id] = if (mode == SplitMode.EXACT) "" else "1" else picked.remove(id) },
       )
       Text(if (id == repo.me) stringResource(R.string.name_you, s.nick(id)) else s.nick(id), Modifier.weight(1f))
+      grossParts[id]?.let {
+        Text(
+          it.money(currency),
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.outline,
+          modifier = Modifier.padding(end = 8.dp),
+        )
+      }
       if (mode != SplitMode.EQUAL && picked.containsKey(id)) {
         OutlinedTextField(
           picked[id] ?: "",

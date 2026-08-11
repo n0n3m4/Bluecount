@@ -182,6 +182,14 @@ data class Put(
   /** [Kind.CONVERSION] only: what the single participant hands back, in [toCurrency]. */
   val toCents: Long = 0,
   val toCurrency: String = "",
+  /**
+   * VAT or service charge, in basis points (1% = 100), 0 for none. Display only, and deliberately
+   * so: [cents] and [shares] are always the VAT-*inclusive* numbers — the amount that actually
+   * changed hands — so a build predating this field folds exactly the same balances. It just cannot
+   * show the subtotal split back out. Storing the net instead would have made this the one field
+   * whose absence changes what somebody owes.
+   */
+  val vatBp: Long = 0,
 ) : Payload
 
 /** Tolerant on purpose: an op we cannot parse is still stored and relayed, just not folded. */
