@@ -312,10 +312,14 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
             vat,
             { vat = it },
             label = { Text(stringResource(R.string.vat_percent)) },
+            // The sign lives in the field rather than the label: "НДС / чаевые, %" wrapped to two
+            // lines in a box narrow enough to leave room for the total, and a wrapped label in an
+            // empty field is the ugliest thing on the screen. Weight, so it is as wide as it can be.
+            suffix = { Text("%") },
             isError = bp < 0,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             singleLine = true,
-            modifier = Modifier.width(140.dp),
+            modifier = Modifier.weight(1f),
           )
           // Empty field, nothing else on screen: an expense without VAT looks exactly as it did.
           if (bp > 0 && gross != null) {
