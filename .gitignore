@@ -13,3 +13,8 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Local-only working notes: the spec, the todo list and the agent brief.
+/CLAUDE.md
+/TODO.md
+/ТЗ.txt
