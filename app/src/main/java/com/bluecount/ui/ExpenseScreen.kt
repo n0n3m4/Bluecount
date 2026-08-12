@@ -165,10 +165,17 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
       }
     }
   val badWeight = weights.values.any { it < 0 }
-  // The inclusive amount each person ends up owing. Shown in the rows and saved as the shares, so
-  // the two cannot drift apart — vatParts() is what keeps a half-typed column reading as itself.
+  // The inclusive amount each person ends up owing, shown in gray beside every included member.
+  // EQUAL and SHARES get it straight from split() — the same call fold() will make, so the preview
+  // and the saved ledger place the leftover cent on the same person. EXACT goes through vatParts()
+  // instead, which is what keeps a half-typed column reading as itself; there it is also what gets
+  // saved, so the figure shown and the shares stored cannot drift apart.
   val grossParts =
-    if (!oneToOne && mode == SplitMode.EXACT && !badWeight) vatParts(cents, bp, weights) else emptyMap()
+    when {
+      oneToOne || badWeight -> emptyMap()
+      mode == SplitMode.EXACT -> vatParts(cents, bp, weights)
+      else -> split(gross ?: 0L, mode, weights)
+    }
   val exactMismatch =
     !oneToOne && mode == SplitMode.EXACT && !badWeight && cents != null && weights.values.sum() != cents
   // A payback or an exchange to yourself is a no-op that would still show up in the list; block it.
@@ -217,7 +224,9 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
                     shares =
                       when {
                         oneToOne || mode == SplitMode.EQUAL -> weights.mapValues { 1L }
-                        grossParts.isNotEmpty() -> grossParts
+                        // SHARES stores the weights as typed, never grossParts: those are cents, and
+                        // reopening the expense would read them back as shares.
+                        mode == SplitMode.EXACT && grossParts.isNotEmpty() -> grossParts
                         else -> weights
                       },
                     kind = kind,
@@ -557,7 +566,7 @@ private fun SplitSection(
   onMode: (SplitMode) -> Unit,
   picked: MutableMap<UserId, String>,
   weights: Map<UserId, Long>,
-  /** What each person owes once VAT is on top. Empty when there is none, and then rows look as before. */
+  /** What each person owes, VAT included. Empty while the amount or a share is unreadable. */
   grossParts: Map<UserId, Long>,
   currency: String,
 ) {
