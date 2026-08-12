@@ -196,7 +196,12 @@ class SyncEngine(private val context: Context, private val repo: Repo) {
   private val sharing = CopyOnWriteArrayList<String>()
   private var transport: NearbyTransport? = null
   private var ticker: Job? = null
-  private var holds = 0
+  // Volatile because WakeReceiver reads it below from a broadcast thread.
+  @Volatile private var holds = 0
+
+  /** Someone already owns the radio: the foreground activity, or a wake window still open. */
+  val busy: Boolean
+    get() = holds > 0
 
   /** Short text for the UI: what the radio is doing right now. */
   val status = MutableStateFlow(context.getString(R.string.sync_off))

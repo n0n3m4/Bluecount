@@ -52,6 +52,10 @@ class MainActivity : ComponentActivity() {
     // Beacon so phones with the app closed wake and come to collect; keep listening for theirs.
     Wake.advertise(this)
     Wake.arm(this)
+    // A wake window may still be open from before the app was opened, and its notification is now
+    // redundant. Only safe after startSync() took our hold: onDestroy releases the service's, and
+    // the count reaching zero in between would tear the radio down and bring it straight back up.
+    stopService(Intent(this, SyncService::class.java))
   }
 
   override fun onStop() {

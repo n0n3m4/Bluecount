@@ -186,6 +186,9 @@ class WakeReceiver : BroadcastReceiver() {
   }
 
   private fun wake(context: Context) {
+    // The foreground activity already holds the radio and beacons back, so waking adds nothing here
+    // except a foreground-service notification on top of the app the user is already looking at.
+    if (App.instance.sync.busy) return
     val repo = App.instance.repo
     val now = System.currentTimeMillis()
     if (now - repo.lastWake < WAKE_DEBOUNCE_MS) return
@@ -202,19 +205,23 @@ class WakeReceiver : BroadcastReceiver() {
           .setSmallIcon(R.drawable.ic_sync)
           .setContentTitle(context.getString(R.string.note_updates_title))
           .setContentText(context.getString(R.string.note_updates_text))
-          .setContentIntent(
-            PendingIntent.getActivity(
-              context,
-              0,
-              Intent(context, MainActivity::class.java),
-              PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-            )
-          )
+          .setContentIntent(openApp(context))
           .setAutoCancel(true)
           .build(),
       )
     }
   }
+}
+
+/**
+ * The launcher intent rather than a bare component, so a tap resumes the task the user already has
+ * instead of stacking a second `MainActivity` on top of it — the activity is plain `standard`.
+ */
+private fun openApp(context: Context): PendingIntent {
+  val intent =
+    context.packageManager.getLaunchIntentForPackage(context.packageName)
+      ?: Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+  return PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 }
 
 private fun channel(context: Context) {
@@ -245,6 +252,7 @@ class SyncService : Service() {
       NotificationCompat.Builder(this, CHANNEL)
         .setSmallIcon(R.drawable.ic_sync)
         .setContentTitle(getString(R.string.note_syncing))
+        .setContentIntent(openApp(this))
         .setOngoing(true)
         .build()
     // Must be the first thing we do: the system kills us if it does not happen within 5s.
