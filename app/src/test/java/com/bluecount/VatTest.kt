@@ -70,6 +70,28 @@ class VatTest {
   }
 
   @Test
+  fun `a half-typed amounts column just adds VAT to each part`() {
+    val half = mapOf("a" to 5_000L, "b" to 3_000L)
+    // 80.00 of a 100.00 subtotal typed so far: each part carries its own 10%, and nothing is scaled
+    // up to the 110.00 total the way distributing it would (which showed 68.75 / 41.25 here).
+    assertEquals(mapOf("a" to 5_500L, "b" to 3_300L), vatParts(10_000, 1_000, half))
+    // Same while there is no total to compare against at all.
+    assertEquals(mapOf("a" to 5_500L, "b" to 3_300L), vatParts(null, 1_000, half))
+
+    // Once they add up it is split() over the inclusive total — the value that gets stored, and the
+    // only thing allowed to place the leftover cent.
+    val full = mapOf("a" to 3_333L, "b" to 6_667L)
+    val gross = grossOf(10_000, 825)
+    assertEquals(split(gross, SplitMode.SHARES, full), vatParts(10_000, 825, full))
+    assertEquals(gross, vatParts(10_000, 825, full).values.sum())
+
+    // No rate, or a nonsense one, and the rows show nothing at all.
+    assertEquals(emptyMap<UserId, Long>(), vatParts(10_000, 0, full))
+    assertEquals(emptyMap<UserId, Long>(), vatParts(10_000, -1, full))
+    assertEquals(emptyMap<UserId, Long>(), vatParts(10_000, BP + 1, full))
+  }
+
+  @Test
   fun `a VAT expense balances exactly like the same total without one`() {
     val plain =
       trip().apply {

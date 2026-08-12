@@ -60,6 +60,7 @@ import com.bluecount.UserId
 import com.bluecount.grossOf
 import com.bluecount.netOf
 import com.bluecount.split
+import com.bluecount.vatParts
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -164,13 +165,10 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
       }
     }
   val badWeight = weights.values.any { it < 0 }
-  // The inclusive amount each person ends up owing. split() rather than grossing up each part on its
-  // own: the parts have to add back to the stored total exactly, and this is the function that does
-  // that. Shown in the rows and saved as the shares, so the two cannot drift apart.
+  // The inclusive amount each person ends up owing. Shown in the rows and saved as the shares, so
+  // the two cannot drift apart — vatParts() is what keeps a half-typed column reading as itself.
   val grossParts =
-    if (!oneToOne && mode == SplitMode.EXACT && bp > 0 && gross != null && !badWeight)
-      split(gross, SplitMode.SHARES, weights)
-    else emptyMap()
+    if (!oneToOne && mode == SplitMode.EXACT && !badWeight) vatParts(cents, bp, weights) else emptyMap()
   val exactMismatch =
     !oneToOne && mode == SplitMode.EXACT && !badWeight && cents != null && weights.values.sum() != cents
   // A payback or an exchange to yourself is a no-op that would still show up in the list; block it.

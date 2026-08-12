@@ -166,6 +166,23 @@ fun netOf(gross: Long, bp: Long): Long =
   if (bp <= 0 || bp > BP || gross <= 0) gross else (gross * BP + (BP + bp) / 2) / (BP + bp)
 
 /**
+ * What each person owes with VAT on top, for an [SplitMode.EXACT] split whose [parts] were typed
+ * VAT-free. Empty when there is no VAT, and then the rows carry no figure at all.
+ *
+ * Once the parts add up to [net] this has to be [split] over the inclusive total: that is the only
+ * thing allowed to place a leftover cent, and it is what gets stored. Until they do, each part
+ * grosses up on its own — distributing the whole inclusive total over a half-typed column shows a
+ * number nobody typed (one part of 50.00 against a 100.00 subtotal would read as the entire 110.00),
+ * and the two agree anyway on the state that can actually be saved.
+ */
+fun vatParts(net: Long?, bp: Long, parts: Map<UserId, Long>): Map<UserId, Long> =
+  when {
+    bp <= 0 || bp > BP -> emptyMap()
+    net != null && net > 0 && parts.values.sum() == net -> split(grossOf(net, bp), SplitMode.SHARES, parts)
+    else -> parts.mapValues { grossOf(it.value, bp) }
+  }
+
+/**
  * Greedy largest-debtor-to-largest-creditor, which is what Tricount's "settle up" does: at most
  * n-1 transfers instead of everyone paying everyone.
  *
