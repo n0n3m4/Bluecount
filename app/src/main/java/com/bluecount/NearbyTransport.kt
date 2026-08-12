@@ -137,13 +137,19 @@ class NearbyTransport(context: Context, private val myName: String) : Transport 
 
   override fun start(onPeer: (Peer) -> Unit) {
     this.onPeer = onPeer
-    val options = AdvertisingOptions.Builder().setStrategy(Strategy.P2P_CLUSTER).build()
+    // setLowPower means BLE only, and that is not about battery here. Bluetooth Classic has no
+    // advertisement payload — the adapter's friendly name *is* the broadcast — so with it enabled
+    // Nearby renames the phone to a base64 blob for as long as we advertise, and any car that
+    // connects in that window caches the blob in its paired-device list and shows it forever.
+    // The price is range and throughput; our payloads are a few KB of signed ops.
+    val options = AdvertisingOptions.Builder().setStrategy(Strategy.P2P_CLUSTER).setLowPower(true).build()
     client.startAdvertising(myName, SERVICE_ID, lifecycle, options).addOnFailureListener {
       Log.w(TAG, "advertising failed", it)
     }
-    client
-      .startDiscovery(SERVICE_ID, discovery, DiscoveryOptions.Builder().setStrategy(Strategy.P2P_CLUSTER).build())
-      .addOnFailureListener { Log.w(TAG, "discovery failed", it) }
+    // Matched to the advertiser: no point running a Bluetooth Classic inquiry for a medium nobody
+    // advertises on any more.
+    val found = DiscoveryOptions.Builder().setStrategy(Strategy.P2P_CLUSTER).setLowPower(true).build()
+    client.startDiscovery(SERVICE_ID, discovery, found).addOnFailureListener { Log.w(TAG, "discovery failed", it) }
   }
 
   /** Retry anyone we know about but are not talking to — called on a timer and after local writes. */
