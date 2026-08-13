@@ -4,6 +4,7 @@ import android.text.format.DateUtils
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -50,6 +51,7 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -295,7 +297,7 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
         modifier = Modifier.fillMaxWidth(),
       )
 
-      AmountRow(
+      MoneyRow(
         label =
           stringResource(
             when {
@@ -343,7 +345,7 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
       }
 
       if (kind == Kind.CONVERSION) {
-        AmountRow(
+        MoneyRow(
           label = stringResource(R.string.receives),
           amount = toAmount,
           onAmount = {
@@ -436,7 +438,24 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
           color = MaterialTheme.colorScheme.outline,
         )
       } else {
-        SplitSection(s, mode, { mode = it }, picked, weights, grossParts, currency)
+        SplitSection(
+          s,
+          mode,
+          { m ->
+            // Shares and amounts are different units, so a value typed as one is nonsense as the
+            // other: "100.00" read as a share count is unparseable, which blocks the save with
+            // nothing on screen to explain it — Equally does not even show the box it objects to.
+            // Equally and Shares are both counts, so switching between those keeps what was typed.
+            if ((m == SplitMode.EXACT) != (mode == SplitMode.EXACT)) {
+              picked.keys.forEach { picked[it] = if (m == SplitMode.EXACT) "" else "1" }
+            }
+            mode = m
+          },
+          picked,
+          weights,
+          grossParts,
+          currency,
+        )
       }
 
       if (exactMismatch) {
@@ -539,47 +558,63 @@ private fun deleteLabel(kind: Kind) =
   }
 
 /**
- * Amount plus its currency. Three of these on screen at once for an exchange, so it is one thing.
+ * Every field in the editor that holds money: the amount, both sides of an exchange, and one per
+ * person once the split is typed as amounts.
  *
- * The field takes arithmetic — "3×4.50+2" — because a bill is one before it is a number. No
+ * All of them take arithmetic — "3×4.50+2" — because a bill is one before it is a number. No
  * numeric keyboard has a `+`, and which extra keys an IME offers is the IME's business, so the
  * operators are four buttons of our own; they appear only while the field has focus, and the
  * running result stays visible after it loses focus, when the box shows an expression rather than
  * a sum.
+ *
+ * [leading] and [trailing] are what else shares the line — a currency picker beside the amount, a
+ * checkbox and a name beside a person's share — so the operators can sit under the whole row
+ * rather than under the box.
  */
 @Composable
-private fun AmountRow(
-  label: String,
-  amount: String,
-  onAmount: (String) -> Unit,
-  bad: Boolean,
+private fun CalcField(
+  value: String,
+  onValue: (String) -> Unit,
   currency: String,
-  onCurrency: (String) -> Unit,
+  /** Null takes the rest of the line; a width is for a field sharing it with a name. */
+  width: Dp? = null,
+  label: @Composable (() -> Unit)? = null,
+  bad: Boolean = false,
+  arrangement: Arrangement.Horizontal = Arrangement.Start,
+  leading: @Composable RowScope.() -> Unit = {},
+  trailing: @Composable RowScope.() -> Unit = {},
 ) {
   var focused by remember { mutableStateOf(false) }
   // The caller owns the text, but an operator button has to land on the caret rather than at the
   // end — the keyboard keeps typing where the caret was, so appending scrambles "100.00" into
   // "100.003×". That means holding the selection here, and re-syncing when the caller writes the
   // field from outside, which reprice() does to the far side of an exchange.
-  var field by remember { mutableStateOf(TextFieldValue(amount)) }
-  if (field.text != amount) field = TextFieldValue(amount, TextRange(amount.length))
+  var field by remember { mutableStateOf(TextFieldValue(value)) }
+  if (field.text != value) field = TextFieldValue(value, TextRange(value.length))
   // Nothing to resolve without an operator: the field already reads as its own result.
-  val calc = if (amount.any { it in OPERATORS }) amount.toCentsOrNull() else null
+  val calc = if (value.any { it in OPERATORS }) value.toCentsOrNull() else null
   Column(Modifier.fillMaxWidth()) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(
+      Modifier.fillMaxWidth(),
+      horizontalArrangement = arrangement,
+      verticalAlignment = Alignment.CenterVertically,
+    ) {
+      leading()
       OutlinedTextField(
         field,
         {
           field = it
-          onAmount(it.text)
+          onValue(it.text)
         },
-        label = { Text(label) },
+        label = label,
         isError = bad,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
         singleLine = true,
-        modifier = Modifier.weight(1f).onFocusChanged { focused = it.isFocused },
+        modifier =
+          (if (width == null) Modifier.weight(1f) else Modifier.width(width))
+            .onFocusChanged { focused = it.isFocused },
       )
-      CurrencyField(currency, onCurrency, Modifier.width(120.dp))
+      trailing()
     }
     if (focused || calc != null) {
       Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -592,7 +627,7 @@ private fun AmountRow(
                 val at = field.selection.end
                 val text = field.text.take(at) + op + field.text.drop(at)
                 field = TextFieldValue(text, TextRange(at + 1))
-                onAmount(text)
+                onValue(text)
               }
             ) {
               Text(op.toString(), style = MaterialTheme.typography.titleMedium)
@@ -610,6 +645,27 @@ private fun AmountRow(
       }
     }
   }
+}
+
+/** Amount plus its currency. Three of these on screen at once for an exchange, so it is one thing. */
+@Composable
+private fun MoneyRow(
+  label: String,
+  amount: String,
+  onAmount: (String) -> Unit,
+  bad: Boolean,
+  currency: String,
+  onCurrency: (String) -> Unit,
+) {
+  CalcField(
+    amount,
+    onAmount,
+    currency,
+    label = { Text(label) },
+    bad = bad,
+    arrangement = Arrangement.spacedBy(8.dp),
+    trailing = { CurrencyField(currency, onCurrency, Modifier.width(120.dp)) },
+  )
 }
 
 @Composable
@@ -646,7 +702,9 @@ private fun SplitSection(
   }
 
   s.members.keys.forEach { id ->
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    // Everything on the line except a typed amount, which is the one thing that needs the
+    // operators underneath and so has to own the row rather than sit in it.
+    val person: @Composable RowScope.() -> Unit = {
       Checkbox(
         checked = picked.containsKey(id),
         onCheckedChange = { on -> if (on) picked[id] = if (mode == SplitMode.EXACT) "" else "1" else picked.remove(id) },
@@ -660,16 +718,30 @@ private fun SplitSection(
           modifier = Modifier.padding(end = 8.dp),
         )
       }
-      if (mode != SplitMode.EQUAL && picked.containsKey(id)) {
+      // A share is a count, not money: "2+1" is three shares of something, not three roubles, so
+      // it gets a plain box. Only the amounts column is worth a calculator.
+      if (mode == SplitMode.SHARES && picked.containsKey(id)) {
         OutlinedTextField(
           picked[id] ?: "",
           { picked[id] = it },
           modifier = Modifier.width(110.dp),
           singleLine = true,
-          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
           isError = (weights[id] ?: -1L) < 0,
         )
       }
+    }
+    if (mode == SplitMode.EXACT && picked.containsKey(id)) {
+      CalcField(
+        picked[id] ?: "",
+        { picked[id] = it },
+        currency,
+        width = 110.dp,
+        bad = (weights[id] ?: -1L) < 0,
+        leading = person,
+      )
+    } else {
+      Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, content = person)
     }
   }
 }
