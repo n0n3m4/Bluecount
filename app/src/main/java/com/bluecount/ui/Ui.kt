@@ -48,10 +48,55 @@ fun Long.money(): String {
 /** Amounts are never shown bare now that an event can hold several currencies at once. */
 fun Long.money(cur: String): String = "${money()} $cur"
 
-/** Accepts "12", "12.3", "12,34". Null for anything else — no silent rounding of user input. */
+/**
+ * Accepts "12", "12.3", "12,34", and — since a bill is usually arithmetic before it is a number —
+ * a sum of those: "3×4.50+2". A bare literal with three decimals is still rejected rather than
+ * rounded; rounding is only allowed where the user actually asked for arithmetic.
+ */
 fun String.toCentsOrNull(): Long? {
-  val m = Regex("""^(\d{1,12})(?:[.,](\d{0,2}))?$""").matchEntire(trim()) ?: return null
+  val m =
+    Regex("""^(\d{1,12})(?:[.,](\d{0,2}))?$""").matchEntire(trim())
+      // Half up, once, on the way out — the only rounding anywhere in the input path.
+      ?: return evalMicros()?.let { (it + MICRO / 200) / (MICRO / 100) }
   return m.groupValues[1].toLong() * 100 + m.groupValues[2].padEnd(2, '0').toLong()
+}
+
+/** What the operator row types, plus the ASCII trio a hardware or third-party keyboard sends. */
+const val OPERATORS = "+-−*×/÷"
+
+/**
+ * "3×4.50+2" in micros, or null. Micros rather than cents so × and ÷ keep six digits of room, and
+ * `Math.multiplyExact` rather than a range check so an absurd product returns null instead of
+ * wrapping around into a plausible amount. Left-associative, two precedence levels, no parentheses
+ * — the operator row cannot type one.
+ */
+private fun String.evalMicros(): Long? {
+  val s = filterNot { it == ' ' }.replace('−', '-').replace('×', '*').replace('÷', '/')
+  // Without an operator this is a plain literal the strict parser already refused. Falling through
+  // would quietly round the "12.345" it deliberately rejected.
+  if (s.none { it in OPERATORS }) return null
+  val tokens = Regex("""([-+*/]?)(\d{1,9}(?:[.,]\d{0,6})?)""").findAll(s).toList()
+  // Anything the tokens do not cover is junk: "1+", "1++2", "1e3".
+  if (tokens.isEmpty() || tokens.sumOf { it.value.length } != s.length) return null
+  return runCatching {
+    var sum = 0L // micros, everything to the left of the pending +/-
+    var term = 0L
+    var add = 1L
+    for ((i, t) in tokens.withIndex()) {
+      val v = t.groupValues[2].toMicrosOrNull() ?: return null
+      when (t.groupValues[1]) {
+        "*" -> term = Math.multiplyExact(term, v) / MICRO
+        "/" -> term = if (v == 0L) return null else Math.multiplyExact(term, MICRO) / v
+        "" -> if (i == 0) term = v else return null
+        else -> {
+          sum = Math.addExact(sum, add * term)
+          add = if (t.groupValues[1] == "+") 1L else -1L
+          term = v
+        }
+      }
+    }
+    Math.addExact(sum, add * term).takeIf { it >= 0 }
+  }.getOrNull()
 }
 
 /** An exchange rate scaled by [MICRO], so the rate fields stay integer like everything else. */

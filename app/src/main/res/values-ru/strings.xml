@@ -99,6 +99,7 @@
     <string name="amount_net">Сумма без НДС</string>
     <string name="vat_percent">НДС / чаевые</string>
     <string name="vat_total">С НДС: %1$s</string>
+    <string name="calc_result">= %1$s</string>
     <string name="gives">Отдаёт</string>
     <string name="receives">Получает</string>
     <string name="rate_label">Курс: 1 %1$s = ? %2$s</string>

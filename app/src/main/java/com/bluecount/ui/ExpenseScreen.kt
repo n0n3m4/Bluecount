@@ -43,9 +43,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.KeyboardOptions
@@ -535,7 +538,15 @@ private fun deleteLabel(kind: Kind) =
     Kind.CONVERSION -> R.string.delete_exchange
   }
 
-/** Amount plus its currency. Three of these on screen at once for an exchange, so it is one thing. */
+/**
+ * Amount plus its currency. Three of these on screen at once for an exchange, so it is one thing.
+ *
+ * The field takes arithmetic — "3×4.50+2" — because a bill is one before it is a number. No
+ * numeric keyboard has a `+`, and which extra keys an IME offers is the IME's business, so the
+ * operators are four buttons of our own; they appear only while the field has focus, and the
+ * running result stays visible after it loses focus, when the box shows an expression rather than
+ * a sum.
+ */
 @Composable
 private fun AmountRow(
   label: String,
@@ -545,17 +556,59 @@ private fun AmountRow(
   currency: String,
   onCurrency: (String) -> Unit,
 ) {
-  Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-    OutlinedTextField(
-      amount,
-      onAmount,
-      label = { Text(label) },
-      isError = bad,
-      keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-      singleLine = true,
-      modifier = Modifier.weight(1f),
-    )
-    CurrencyField(currency, onCurrency, Modifier.width(120.dp))
+  var focused by remember { mutableStateOf(false) }
+  // The caller owns the text, but an operator button has to land on the caret rather than at the
+  // end — the keyboard keeps typing where the caret was, so appending scrambles "100.00" into
+  // "100.003×". That means holding the selection here, and re-syncing when the caller writes the
+  // field from outside, which reprice() does to the far side of an exchange.
+  var field by remember { mutableStateOf(TextFieldValue(amount)) }
+  if (field.text != amount) field = TextFieldValue(amount, TextRange(amount.length))
+  // Nothing to resolve without an operator: the field already reads as its own result.
+  val calc = if (amount.any { it in OPERATORS }) amount.toCentsOrNull() else null
+  Column(Modifier.fillMaxWidth()) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+      OutlinedTextField(
+        field,
+        {
+          field = it
+          onAmount(it.text)
+        },
+        label = { Text(label) },
+        isError = bad,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+        singleLine = true,
+        modifier = Modifier.weight(1f).onFocusChanged { focused = it.isFocused },
+      )
+      CurrencyField(currency, onCurrency, Modifier.width(120.dp))
+    }
+    if (focused || calc != null) {
+      Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        // Not a string resource and not an icon: an operator is the same character in every
+        // language, like the "%" suffix on the VAT field above.
+        if (focused) {
+          "+−×÷".forEach { op ->
+            TextButton(
+              onClick = {
+                val at = field.selection.end
+                val text = field.text.take(at) + op + field.text.drop(at)
+                field = TextFieldValue(text, TextRange(at + 1))
+                onAmount(text)
+              }
+            ) {
+              Text(op.toString(), style = MaterialTheme.typography.titleMedium)
+            }
+          }
+        }
+        calc?.let {
+          Text(
+            stringResource(R.string.calc_result, it.money(currency)),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(start = 8.dp),
+          )
+        }
+      }
+    }
   }
 }
 

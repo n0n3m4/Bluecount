@@ -37,6 +37,30 @@ class MoneyTest {
   }
 
   @Test
+  fun `an amount field also does the arithmetic`() {
+    assertEquals(1700L, "12+5".toCentsOrNull())
+    assertEquals(1970L, "12.50+3+4.20".toCentsOrNull())
+    assertEquals(1550L, "3×4.50+2".toCentsOrNull())
+    // × binds tighter than +, as it does on paper.
+    assertEquals(1400L, "2+3×4".toCentsOrNull())
+    // A hardware keyboard types the ASCII operators, and a Russian locale types the comma.
+    assertEquals(1350L, "3*4,50".toCentsOrNull())
+    assertEquals(1000L, " 20 - 10 ".toCentsOrNull())
+    // Asking for arithmetic is asking to be rounded, but only once, at the end.
+    assertEquals(3333L, "100/3".toCentsOrNull())
+    assertEquals(10_000L, "100/3×3".toCentsOrNull())
+
+    assertNull("10-12".toCentsOrNull())
+    assertNull("1+".toCentsOrNull())
+    assertNull("1++2".toCentsOrNull())
+    assertNull("1/0".toCentsOrNull())
+    assertNull("+".toCentsOrNull())
+    assertNull("2+(3×4)".toCentsOrNull())
+    // Overflow must read as unparseable, not wrap around into a plausible amount.
+    assertNull("999999999×999999999".toCentsOrNull())
+  }
+
+  @Test
   fun `amount survives a round trip through the editor`() {
     for (cents in listOf(1L, 99L, 100L, 4321L, 1_000_000L)) {
       assertEquals(cents, cents.money().toCentsOrNull())
