@@ -41,14 +41,18 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:windowSoftInputMode="adjustResize"
         android:theme="@style/Theme.Bluecount">
         <!-- The label has to be on the activity too, not just the application: recents takes its
              title from the activity's own label and prints "com.bluecount.MainActivity" when it
              has none. -->
+        <!-- windowSoftInputMode belongs on the activity: it is not one of the attributes an
+             activity inherits from <application>, so declaring it up there did nothing at all and
+             the keyboard panned the window instead of resizing it — which is why the bottom of the
+             expense editor had nothing left to scroll. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:windowSoftInputMode="adjustResize"
             android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

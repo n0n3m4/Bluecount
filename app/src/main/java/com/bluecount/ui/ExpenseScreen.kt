@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -96,6 +98,13 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
   var payerMenu by remember { mutableStateOf(false) }
   var toMenu by remember { mutableStateOf(false) }
   var deleting by remember { mutableStateOf(false) }
+  // Whichever money field holds the caret, and the token it claimed the operator bar with. Focus
+  // callbacks are not ordered — moving between two fields can report the old one's loss after the
+  // new one's gain — so a release only counts from whoever is currently holding.
+  var ops by remember { mutableStateOf<Pair<Any, (Char) -> Unit>?>(null) }
+  val onOps: (Any, ((Char) -> Unit)?) -> Unit = { token, insert ->
+    if (insert != null) ops = token to insert else if (ops?.first === token) ops = null
+  }
 
   val s = state
   // Seed the form once the log has been read; everything after that is the user's edit.
@@ -249,7 +258,31 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
           }
         },
       )
-    }
+    },
+    // Emitted even when empty, and that is the point. Two different mechanisms put the keyboard's
+    // height somewhere the layout can see it: before API 30 adjustResize shrinks the window, and
+    // from 30 the window stays whole and reports an ime inset instead. This bar is what turns the
+    // second into room — a Scaffold hands its content the bottom bar's height, and nothing else in
+    // the app consumes that inset.
+    bottomBar = {
+      // imePadding before navigationBarsPadding is max(ime, nav bar), not their sum: the first
+      // consumes what the second would otherwise add on top. Zero-height when the keyboard is
+      // down would eat the gesture-bar gap the content had before there was a bar at all.
+      Row(
+        Modifier.fillMaxWidth().imePadding().navigationBarsPadding(),
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        ops?.let { (_, insert) ->
+          // Not a string resource and not an icon: an operator is the same character in every
+          // language, like the "%" suffix on the VAT field.
+          "+−×÷".forEach { op ->
+            TextButton(onClick = { insert(op) }) {
+              Text(op.toString(), style = MaterialTheme.typography.titleMedium)
+            }
+          }
+        }
+      }
+    },
   ) { pad ->
     if (s == null) return@Scaffold
 
@@ -315,6 +348,7 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
         bad = amount.isNotEmpty() && cents == null,
         currency = currency,
         onCurrency = { currency = it },
+        onOps = onOps,
       )
 
       // A payback is cash handed over and an exchange is net zero; neither has a subtotal to tax.
@@ -357,6 +391,7 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
           bad = toAmount.isNotEmpty() && (toCents == null || toCents <= 0),
           currency = toCurrency,
           onCurrency = { toCurrency = it },
+          onOps = onOps,
         )
         OutlinedTextField(
           rate,
@@ -455,6 +490,7 @@ fun ExpenseScreen(eventId: String, expenseId: String?, onBack: () -> Unit) {
           weights,
           grossParts,
           currency,
+          onOps,
         )
       }
 
@@ -563,13 +599,14 @@ private fun deleteLabel(kind: Kind) =
  *
  * All of them take arithmetic — "3×4.50+2" — because a bill is one before it is a number. No
  * numeric keyboard has a `+`, and which extra keys an IME offers is the IME's business, so the
- * operators are four buttons of our own; they appear only while the field has focus, and the
- * running result stays visible after it loses focus, when the box shows an expression rather than
- * a sum.
+ * operators are four buttons of our own. The field does not draw them: it hands [onOps] a way to
+ * type one, and the screen puts them in a bar above the keyboard. Under the field they were
+ * unreachable for the last person in a long split — drawn behind the keyboard, with no scroll room
+ * to bring them up — and they moved every time focus did. The running result does stay here, and
+ * outlives the focus, because it is read rather than tapped.
  *
  * [leading] and [trailing] are what else shares the line — a currency picker beside the amount, a
- * checkbox and a name beside a person's share — so the operators can sit under the whole row
- * rather than under the box.
+ * checkbox and a name beside a person's share.
  */
 @Composable
 private fun CalcField(
@@ -581,16 +618,18 @@ private fun CalcField(
   label: @Composable (() -> Unit)? = null,
   bad: Boolean = false,
   arrangement: Arrangement.Horizontal = Arrangement.Start,
+  /** Claims the operator bar on focus with a token of this field's own, and releases it with null. */
+  onOps: (Any, ((Char) -> Unit)?) -> Unit = { _, _ -> },
   leading: @Composable RowScope.() -> Unit = {},
   trailing: @Composable RowScope.() -> Unit = {},
 ) {
-  var focused by remember { mutableStateOf(false) }
   // The caller owns the text, but an operator button has to land on the caret rather than at the
   // end — the keyboard keeps typing where the caret was, so appending scrambles "100.00" into
   // "100.003×". That means holding the selection here, and re-syncing when the caller writes the
   // field from outside, which reprice() does to the far side of an exchange.
   var field by remember { mutableStateOf(TextFieldValue(value)) }
   if (field.text != value) field = TextFieldValue(value, TextRange(value.length))
+  val token = remember { Any() }
   // Nothing to resolve without an operator: the field already reads as its own result.
   val calc = if (value.any { it in OPERATORS }) value.toCentsOrNull() else null
   Column(Modifier.fillMaxWidth()) {
@@ -612,37 +651,28 @@ private fun CalcField(
         singleLine = true,
         modifier =
           (if (width == null) Modifier.weight(1f) else Modifier.width(width))
-            .onFocusChanged { focused = it.isFocused },
+            .onFocusChanged { state ->
+              onOps(
+                token,
+                if (!state.isFocused) null
+                else { op ->
+                  val at = field.selection.end
+                  val text = field.text.take(at) + op + field.text.drop(at)
+                  field = TextFieldValue(text, TextRange(at + 1))
+                  onValue(text)
+                },
+              )
+            },
       )
       trailing()
     }
-    if (focused || calc != null) {
-      Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        // Not a string resource and not an icon: an operator is the same character in every
-        // language, like the "%" suffix on the VAT field above.
-        if (focused) {
-          "+−×÷".forEach { op ->
-            TextButton(
-              onClick = {
-                val at = field.selection.end
-                val text = field.text.take(at) + op + field.text.drop(at)
-                field = TextFieldValue(text, TextRange(at + 1))
-                onValue(text)
-              }
-            ) {
-              Text(op.toString(), style = MaterialTheme.typography.titleMedium)
-            }
-          }
-        }
-        calc?.let {
-          Text(
-            stringResource(R.string.calc_result, it.money(currency)),
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(start = 8.dp),
-          )
-        }
-      }
+    calc?.let {
+      Text(
+        stringResource(R.string.calc_result, it.money(currency)),
+        style = MaterialTheme.typography.bodyMedium,
+        fontWeight = FontWeight.Bold,
+        modifier = Modifier.padding(start = 8.dp),
+      )
     }
   }
 }
@@ -656,6 +686,7 @@ private fun MoneyRow(
   bad: Boolean,
   currency: String,
   onCurrency: (String) -> Unit,
+  onOps: (Any, ((Char) -> Unit)?) -> Unit,
 ) {
   CalcField(
     amount,
@@ -664,6 +695,7 @@ private fun MoneyRow(
     label = { Text(label) },
     bad = bad,
     arrangement = Arrangement.spacedBy(8.dp),
+    onOps = onOps,
     trailing = { CurrencyField(currency, onCurrency, Modifier.width(120.dp)) },
   )
 }
@@ -678,6 +710,7 @@ private fun SplitSection(
   /** What each person owes, VAT included. Empty while the amount or a share is unreadable. */
   grossParts: Map<UserId, Long>,
   currency: String,
+  onOps: (Any, ((Char) -> Unit)?) -> Unit,
 ) {
   HorizontalDivider()
   Text(stringResource(R.string.split), style = MaterialTheme.typography.titleMedium)
@@ -702,8 +735,8 @@ private fun SplitSection(
   }
 
   s.members.keys.forEach { id ->
-    // Everything on the line except a typed amount, which is the one thing that needs the
-    // operators underneath and so has to own the row rather than sit in it.
+    // Everything on the line except a typed amount, which is the one thing that can show a running
+    // result under the row and so has to own it rather than sit in it.
     val person: @Composable RowScope.() -> Unit = {
       Checkbox(
         checked = picked.containsKey(id),
@@ -738,6 +771,7 @@ private fun SplitSection(
         currency,
         width = 110.dp,
         bad = (weights[id] ?: -1L) < 0,
+        onOps = onOps,
         leading = person,
       )
     } else {
