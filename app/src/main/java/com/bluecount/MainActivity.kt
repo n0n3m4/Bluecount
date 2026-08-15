@@ -19,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.core.content.IntentCompat
 import androidx.core.content.getSystemService
 import androidx.core.net.toUri
 import com.bluecount.theme.BluecountTheme
@@ -66,7 +67,17 @@ class MainActivity : ComponentActivity() {
     pendingImport = importUri(intent)
   }
 
-  private fun importUri(from: Intent?): Uri? = from?.takeIf { it.action == Intent.ACTION_VIEW }?.data
+  /**
+   * VIEW puts the file in the data URI, SEND puts it in EXTRA_STREAM; it is the same file either
+   * way. SEND is worth accepting because "Open with" is not offered at all by some messengers, and
+   * their Share button is then the only way the attachment can reach us.
+   */
+  private fun importUri(from: Intent?): Uri? =
+    when (from?.action) {
+      Intent.ACTION_VIEW -> from.data
+      Intent.ACTION_SEND -> IntentCompat.getParcelableExtra(from, Intent.EXTRA_STREAM, Uri::class.java)
+      else -> null
+    }
 
   private fun importDone() {
     pendingImport = null

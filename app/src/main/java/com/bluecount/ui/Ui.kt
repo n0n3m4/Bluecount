@@ -1,5 +1,6 @@
 package com.bluecount.ui
 
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.text.format.DateUtils
@@ -30,6 +31,7 @@ import androidx.core.content.FileProvider
 import com.bluecount.App
 import com.bluecount.Expense
 import com.bluecount.Kind
+import com.bluecount.MainActivity
 import com.bluecount.R
 import com.bluecount.Repo
 import com.bluecount.SyncEngine
@@ -227,7 +229,11 @@ fun shareFile(context: Context, name: String, mime: String, content: ByteArray, 
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
       },
       chooserTitle,
-    )
+    ).apply {
+      // We accept application/* shares now, so without this the export chooser offers to import
+      // the file straight back into the app that just wrote it.
+      putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(ComponentName(context, MainActivity::class.java)))
+    }
   )
 }
 
