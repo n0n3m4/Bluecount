@@ -63,6 +63,7 @@
     <string name="sync_now">Синхронизировать сейчас</string>
     <string name="wake_on">Будить телефоны рядом: вкл.</string>
     <string name="wake_off">Будить телефоны рядом: выкл.</string>
+    <string name="share_state">Поделиться состоянием</string>
     <string name="export_csv">Экспорт в CSV</string>
     <string name="leave_event">Покинуть событие</string>
     <string name="cd_add_expense">Добавить расход</string>
@@ -141,6 +142,9 @@
         <item quantity="many">Получено %d новых записей</item>
         <item quantity="other">Получено %d новых записей</item>
     </plurals>
+
+    <!-- ui/Import.kt -->
+    <string name="import_failed">Это не файл Bluecount.</string>
 
     <!-- Wake.kt -->
     <string name="channel_sync">Синхронизация</string>

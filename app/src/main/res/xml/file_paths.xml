@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
-    <!-- CSV exports only. Cache, so the OS reclaims them without the app tracking anything. -->
+    <!-- Exports only: CSV, the identity key, .bluecount event files. Cache, so the OS reclaims
+         them without the app tracking anything. -->
     <cache-path name="export" path="export/" />
 </paths>

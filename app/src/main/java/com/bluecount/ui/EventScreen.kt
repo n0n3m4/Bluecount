@@ -97,6 +97,13 @@ fun EventScreen(
               },
             )
             DropdownMenuItem(
+              text = { Text(stringResource(R.string.share_state)) },
+              onClick = {
+                menu = false
+                scope.launch { shareState(context, s?.name.orEmpty(), repo.exportEvent(eventId)) }
+              },
+            )
+            DropdownMenuItem(
               text = { Text(stringResource(R.string.export_csv)) },
               onClick = {
                 menu = false
@@ -167,6 +174,13 @@ fun EventScreen(
     )
   }
 }
+
+/**
+ * Sync by chat app, for when nobody is near enough for the radio. The whole log, so the reader
+ * merges it whatever they already hold — and joins from it if they were never in the event.
+ */
+private fun shareState(context: Context, name: String, bytes: ByteArray) =
+  shareFile(context, safeName(name) + BLUECOUNT_EXT, BLUECOUNT_MIME, bytes, context.getString(R.string.share_state))
 
 /** The log as a file, for keeping: nothing reads a CSV back in, so this is one-way on purpose. */
 private fun shareCsv(context: Context, name: String, csv: String) =

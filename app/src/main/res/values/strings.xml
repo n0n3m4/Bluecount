@@ -59,6 +59,7 @@
     <string name="sync_now">Sync now</string>
     <string name="wake_on">Wake nearby phones: on</string>
     <string name="wake_off">Wake nearby phones: off</string>
+    <string name="share_state">Share current state</string>
     <string name="export_csv">Export CSV</string>
     <string name="leave_event">Leave event</string>
     <string name="cd_add_expense">Add expense</string>
@@ -135,6 +136,9 @@
         <item quantity="one">Received %d new entry</item>
         <item quantity="other">Received %d new entries</item>
     </plurals>
+
+    <!-- ui/Import.kt -->
+    <string name="import_failed">That file isn\'t a Bluecount export.</string>
 
     <!-- Wake.kt -->
     <string name="channel_sync">Syncing</string>

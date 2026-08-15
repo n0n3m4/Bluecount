@@ -1,5 +1,6 @@
 package com.bluecount
 
+import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
@@ -7,12 +8,14 @@ import androidx.navigation3.ui.NavDisplay
 import com.bluecount.ui.EventScreen
 import com.bluecount.ui.EventsScreen
 import com.bluecount.ui.ExpenseScreen
+import com.bluecount.ui.ImportDialog
 import com.bluecount.ui.ScanScreen
 import com.bluecount.ui.SettingsScreen
 import com.bluecount.ui.ShareScreen
 
+/** @param importUri a file tapped in another app, or null. See [ImportDialog]. */
 @Composable
-fun MainNavigation() {
+fun MainNavigation(importUri: Uri? = null, onImportDone: () -> Unit = {}) {
   val backStack = rememberNavBackStack(EventsKey)
   val back = { backStack.removeLastOrNull(); Unit }
 
@@ -37,4 +40,13 @@ fun MainNavigation() {
         entry<SettingsKey> { SettingsScreen(onBack = back) }
       },
   )
+
+  importUri?.let { uri ->
+    ImportDialog(
+      uri = uri,
+      onDone = onImportDone,
+      // Guarded: tapping the file for the event already on screen should not stack a second copy.
+      onOpen = { if (backStack.lastOrNull() != EventKey(it)) backStack.add(EventKey(it)) },
+    )
+  }
 }

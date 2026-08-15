@@ -64,18 +64,13 @@ class MemStore(override val me: UserId, joined: Set<String>) : OpStore {
   fun seed(list: List<Op>) = list.forEach { store(it) }
 
   /** First version of an `(event, author, seq)` wins — an equivocating author gains nothing. */
-  private fun store(op: Op) {
-    stored.putIfAbsent("${op.event}|${op.author}|${op.seq}", op)
-  }
+  private fun store(op: Op): Boolean = stored.putIfAbsent("${op.event}|${op.author}|${op.seq}", op) == null
 
   override suspend fun clocks(): Map<String, Clock> =
     contiguousClocks(stored.values.map { OpKey(it.event, it.author, it.seq) }, joinedEvents)
 
   override suspend fun opsFor(theirClocks: Map<String, Clock>) = selectMissing(ops, theirClocks)
 
-  override suspend fun merge(ops: List<Op>): Int {
-    val good = acceptable(ops, joinedEvents)
-    good.forEach { store(it) }
-    return good.size
-  }
+  /** Counts rows added, not ops accepted — same contract as [Repo.merge]. */
+  override suspend fun merge(ops: List<Op>): Int = acceptable(ops, joinedEvents).count { store(it) }
 }

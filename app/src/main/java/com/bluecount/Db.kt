@@ -74,6 +74,8 @@ interface OpDao {
   /** IGNORE, not REPLACE: first version of an `(event, author, seq)` seen is the one we keep. */
   @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insert(rows: List<OpRow>)
 
+  @Query("SELECT COUNT(*) FROM ops") suspend fun opCount(): Int
+
   @Query("SELECT event, author, seq FROM ops") suspend fun keys(): List<OpKey>
 
   @Query("SELECT id FROM events") suspend fun eventIds(): List<String>
@@ -210,9 +212,16 @@ class Repo(context: Context, signer: Signer) : OpStore {
 
   override suspend fun merge(ops: List<Op>): Int {
     val good = acceptable(ops, dao.eventIds().toSet())
-    if (good.isNotEmpty()) dao.insert(good.map { it.toRow() })
-    return good.size
+    if (good.isEmpty()) return 0
+    // Count rows, not acceptable ops: IGNORE swallows the duplicates, and a file import re-offers
+    // the whole history every time. "0 new" is the answer that tells the user the file was stale.
+    val before = dao.opCount()
+    dao.insert(good.map { it.toRow() })
+    return dao.opCount() - before
   }
+
+  /** The event as a file, for a chat app when nobody is near enough to sync. */
+  suspend fun exportEvent(id: String): ByteArray = exportOps(dao.opsOnce(id).map { it.toOp() })
 }
 
 private fun randomEventId(): String = ByteArray(16).also { java.security.SecureRandom().nextBytes(it) }.b64()

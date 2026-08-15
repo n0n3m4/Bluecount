@@ -2,6 +2,7 @@ package com.bluecount
 
 import android.Manifest
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
@@ -14,6 +15,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.getSystemService
 import androidx.core.net.toUri
@@ -28,12 +32,21 @@ class MainActivity : ComponentActivity() {
   /** `SyncEngine` is hold-counted; this makes sure the activity contributes exactly one hold. */
   private var held = false
 
+  /** An exported event someone sent through a chat app, waiting to be merged. */
+  private var pendingImport by mutableStateOf<Uri?>(null)
+
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
 
+    pendingImport = importUri(intent)
+
     enableEdgeToEdge()
     setContent {
-      BluecountTheme { Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { MainNavigation() } }
+      BluecountTheme {
+        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+          MainNavigation(pendingImport, ::importDone)
+        }
+      }
     }
 
     // POST_NOTIFICATIONS is asked for alongside but kept out of nearbyPermissions(), because
@@ -44,6 +57,22 @@ class MainActivity : ComponentActivity() {
     if (!hasNearbyPermissions()) askNearby.launch(ask)
 
     askBatteryExemption()
+  }
+
+  /** singleTask, so a file tapped while the app is open lands here instead of in a second copy. */
+  override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    setIntent(intent)
+    pendingImport = importUri(intent)
+  }
+
+  private fun importUri(from: Intent?): Uri? = from?.takeIf { it.action == Intent.ACTION_VIEW }?.data
+
+  private fun importDone() {
+    pendingImport = null
+    // The activity keeps its launch intent across a rotation, and replaying the import on every
+    // recreate would re-toast and re-ask. Forget it now that it has been handled.
+    intent = Intent()
   }
 
   override fun onStart() {

@@ -11,7 +11,10 @@ import java.security.Signature
 import java.security.spec.ECGenParameterSpec
 import java.security.spec.PKCS8EncodedKeySpec
 import java.security.spec.X509EncodedKeySpec
+import java.io.InputStream
 import java.util.Base64
+import java.util.zip.DeflaterOutputStream
+import java.util.zip.InflaterInputStream
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -355,4 +358,54 @@ fun decodeMsg(bytes: ByteArray): Msg? =
     }
   } catch (_: Exception) {
     null
+  }
+
+// ---------------------------------------------------------------- file format
+
+/**
+ * Ceiling on anything read from a file. A holiday's log is tens of kilobytes; this is only here so
+ * that a hostile file cannot decide how much heap we allocate.
+ */
+const val MAX_FILE_BYTES = 16 * 1024 * 1024
+
+/**
+ * Read the whole stream, or null if it holds more than [max]. Both ends of the import path are
+ * untrusted — the file came from whoever was in the chat, and a deflate stream can inflate to
+ * gigabytes from a few hundred bytes, so the cap has to be enforced *while* reading.
+ */
+fun readCapped(input: InputStream, max: Int = MAX_FILE_BYTES): ByteArray? {
+  val out = ByteArrayOutputStream()
+  val buf = ByteArray(8192)
+  while (true) {
+    val n = input.read(buf)
+    if (n < 0) return out.toByteArray()
+    if (out.size() + n > max) return null
+    out.write(buf, 0, n)
+  }
+}
+
+/**
+ * The event as a file, for carrying through a chat app when nobody is near enough to sync.
+ *
+ * It is exactly a sync batch — same codec, same signatures, same `acceptable()` on the way in — so
+ * there is no second protocol to keep correct. Whole history rather than a delta: the sender has no
+ * idea what the reader already holds, and re-merging what they have is a no-op anyway.
+ *
+ * Deflated because a chat upload is metered and the log is JSON payloads and base64 keys, which
+ * compress to roughly a third. Only the file, never the radio: [MAX_BATCH_BYTES] already keeps
+ * Nearby batches small, and compressing the wire would stop a new build talking to an installed one.
+ */
+fun exportOps(ops: List<Op>): ByteArray {
+  val out = ByteArrayOutputStream()
+  DeflaterOutputStream(out).use { it.write(OpBatch(ops, more = false).encode()) }
+  return out.toByteArray()
+}
+
+/** Empty for anything that is not one of our files — that is the whole error path. */
+fun importOps(bytes: ByteArray): List<Op> =
+  try {
+    val raw = InflaterInputStream(ByteArrayInputStream(bytes)).use { readCapped(it) }
+    (raw?.let { decodeMsg(it) } as? OpBatch)?.ops.orEmpty()
+  } catch (_: Exception) {
+    emptyList()
   }

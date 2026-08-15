@@ -49,14 +49,53 @@
              activity inherits from <application>, so declaring it up there did nothing at all and
              the keyboard panned the window instead of resizing it — which is why the bottom of the
              expense editor had nothing left to scroll. -->
+        <!-- singleTask: a .bluecount file tapped in a chat app while Bluecount is already open
+             must reach the running instance, not start a second one with its own back stack. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize"
             android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Apps that carry our own MIME type through: nothing else claims it, so tapping the
+                 file opens Bluecount with no chooser at all. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/vnd.bluecount" />
+            </intent-filter>
+
+            <!-- Apps that re-label it on the way through, which is most of them: MimeTypeMap has
+                 never heard of .bluecount, so the attachment arrives as octet-stream and only the
+                 file name is left to go on. Narrowed by pathPattern so this does not claim every
+                 unknown file on the phone.
+
+                 Three patterns rather than one because Android's pathPattern `.*` is not greedy —
+                 it stops at the first following match, so "Ski trip.v2.bluecount" needs its own.
+                 ponytail: android:pathSuffix would be one line, but it is API 31 and minSdk is 26,
+                 and below 31 it is *ignored* rather than failing, which would silently widen this
+                 to every octet-stream file on the device. Drop the patterns when minSdk hits 31.
+
+                 Known ceiling: a messenger that invents some third MIME type opens neither filter.
+                 The fallback is Share -> Bluecount from a file manager. Widening to mimeType="*/*"
+                 would catch those too, at the price of appearing in the chooser for unrelated
+                 files on devices whose content URIs carry no file name in the path. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" android:host="*" android:mimeType="application/octet-stream"
+                    android:pathPattern=".*\\.bluecount" />
+                <data android:scheme="content" android:host="*" android:mimeType="application/octet-stream"
+                    android:pathPattern=".*\\..*\\.bluecount" />
+                <data android:scheme="content" android:host="*" android:mimeType="application/octet-stream"
+                    android:pathPattern=".*\\..*\\..*\\.bluecount" />
+                <data android:scheme="file" android:host="*" android:mimeType="application/octet-stream"
+                    android:pathPattern=".*\\.bluecount" />
             </intent-filter>
         </activity>
 
@@ -65,7 +104,7 @@
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />
 
-        <!-- Handing the CSV export to another app. -->
+        <!-- Handing an export (CSV, key, .bluecount) to another app. -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.files"

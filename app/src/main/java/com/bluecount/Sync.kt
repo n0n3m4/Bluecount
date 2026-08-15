@@ -40,6 +40,8 @@ interface OpStore {
 
   suspend fun opsFor(theirClocks: Map<String, Clock>): List<Op>
 
+  /** @return how many ops this actually added — not how many were acceptable. A file import is the
+   *  whole history every time, so "142 accepted" and "0 new" are very different things to report. */
   suspend fun merge(ops: List<Op>): Int
 }
 

@@ -212,9 +212,12 @@ fun CurrencyField(value: String, onChange: (String) -> Unit, modifier: Modifier 
  * completion callback to delete it on. Matters more for a key than for a CSV; the fix is a
  * `CreateDocument` picker writing the bytes to the user's chosen place directly.
  */
-fun shareFile(context: Context, name: String, mime: String, content: String, chooserTitle: String) {
+fun shareFile(context: Context, name: String, mime: String, content: String, chooserTitle: String) =
+  shareFile(context, name, mime, content.toByteArray(), chooserTitle)
+
+fun shareFile(context: Context, name: String, mime: String, content: ByteArray, chooserTitle: String) {
   val file = File(File(context.cacheDir, "export").apply { mkdirs() }, name)
-  file.writeText(content)
+  file.writeBytes(content)
   val uri = FileProvider.getUriForFile(context, context.packageName + ".files", file)
   context.startActivity(
     Intent.createChooser(
