@@ -76,6 +76,9 @@ fun EventScreen(
         navigationIcon = { BackButton(onBack) },
         actions = {
           IconButton(onClick = onShare) { Icon(painterResource(R.drawable.ic_person_add), stringResource(R.string.invite)) }
+          IconButton(onClick = { scope.launch { shareState(context, s?.name.orEmpty(), repo.exportEvent(eventId)) } }) {
+            Icon(painterResource(R.drawable.ic_cloud_upload), stringResource(R.string.share_state))
+          }
           // A TextButton here was a 64dp-wide stadium pill around a tiny glyph, next to a round
           // 48dp back button; an IconButton is the square, centred thing an app bar expects.
           IconButton(onClick = { menu = true }) { Icon(painterResource(R.drawable.ic_more_vert), stringResource(R.string.cd_more)) }
@@ -94,13 +97,6 @@ fun EventScreen(
                 wake = !wake
                 repo.wakeEnabled = wake
                 if (wake) Wake.arm(context) else Wake.disarm(context)
-              },
-            )
-            DropdownMenuItem(
-              text = { Text(stringResource(R.string.share_state)) },
-              onClick = {
-                menu = false
-                scope.launch { shareState(context, s?.name.orEmpty(), repo.exportEvent(eventId)) }
               },
             )
             DropdownMenuItem(
